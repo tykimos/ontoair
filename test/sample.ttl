@@ -1,0 +1,58 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/ontology#> .
+
+ex:Ontology rdf:type owl:Ontology .
+
+# Classes
+ex:Person rdf:type owl:Class .
+ex:Organization rdf:type owl:Class .
+ex:Project rdf:type owl:Class .
+ex:Document rdf:type owl:Class .
+ex:Employee rdf:type owl:Class ;
+    rdfs:subClassOf ex:Person .
+ex:Manager rdf:type owl:Class ;
+    rdfs:subClassOf ex:Employee .
+ex:Department rdf:type owl:Class ;
+    rdfs:subClassOf ex:Organization .
+
+# Object Properties
+ex:worksFor rdf:type owl:ObjectProperty ;
+    rdfs:domain ex:Employee ;
+    rdfs:range ex:Organization .
+ex:manages rdf:type owl:ObjectProperty ;
+    rdfs:domain ex:Manager ;
+    rdfs:range ex:Project .
+ex:memberOf rdf:type owl:ObjectProperty ;
+    rdfs:domain ex:Employee ;
+    rdfs:range ex:Department .
+ex:authors rdf:type owl:ObjectProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Document .
+
+# Datatype Properties
+ex:name rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range xsd:string .
+ex:email rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range xsd:string .
+ex:startDate rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Employee ;
+    rdfs:range xsd:date .
+
+# Individuals
+ex:Alice rdf:type ex:Manager ;
+    ex:name "Alice Kim" ;
+    ex:worksFor ex:AcmeCorp ;
+    ex:manages ex:ProjectAlpha .
+ex:Bob rdf:type ex:Employee ;
+    ex:name "Bob Park" ;
+    ex:worksFor ex:AcmeCorp ;
+    ex:memberOf ex:Engineering .
+ex:AcmeCorp rdf:type ex:Organization .
+ex:Engineering rdf:type ex:Department .
+ex:ProjectAlpha rdf:type ex:Project .
+ex:Report1 rdf:type ex:Document .

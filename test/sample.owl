@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://example.org/ontology#"
+     xml:base="http://example.org/ontology"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+
+    <owl:Ontology rdf:about="http://example.org/ontology"/>
+
+    <!-- Classes -->
+    <owl:Class rdf:about="#Animal"/>
+    <owl:Class rdf:about="#Mammal">
+        <rdfs:subClassOf rdf:resource="#Animal"/>
+    </owl:Class>
+    <owl:Class rdf:about="#Bird">
+        <rdfs:subClassOf rdf:resource="#Animal"/>
+    </owl:Class>
+    <owl:Class rdf:about="#Dog">
+        <rdfs:subClassOf rdf:resource="#Mammal"/>
+    </owl:Class>
+    <owl:Class rdf:about="#Cat">
+        <rdfs:subClassOf rdf:resource="#Mammal"/>
+    </owl:Class>
+    <owl:Class rdf:about="#Eagle">
+        <rdfs:subClassOf rdf:resource="#Bird"/>
+    </owl:Class>
+    <owl:Class rdf:about="#Habitat"/>
+    <owl:Class rdf:about="#Food"/>
+
+    <!-- Object Properties -->
+    <owl:ObjectProperty rdf:about="#livesIn">
+        <rdfs:domain rdf:resource="#Animal"/>
+        <rdfs:range rdf:resource="#Habitat"/>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="#eats">
+        <rdfs:domain rdf:resource="#Animal"/>
+        <rdfs:range rdf:resource="#Food"/>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="#hasParent">
+        <rdfs:domain rdf:resource="#Animal"/>
+        <rdfs:range rdf:resource="#Animal"/>
+    </owl:ObjectProperty>
+
+    <!-- Datatype Properties -->
+    <owl:DatatypeProperty rdf:about="#hasName">
+        <rdfs:domain rdf:resource="#Animal"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="#hasAge">
+        <rdfs:domain rdf:resource="#Animal"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    </owl:DatatypeProperty>
+
+    <!-- Individuals -->
+    <owl:NamedIndividual rdf:about="#Rex">
+        <rdf:type rdf:resource="#Dog"/>
+        <hasName rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Rex</hasName>
+    </owl:NamedIndividual>
+    <owl:NamedIndividual rdf:about="#Whiskers">
+        <rdf:type rdf:resource="#Cat"/>
+        <hasName rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Whiskers</hasName>
+    </owl:NamedIndividual>
+    <owl:NamedIndividual rdf:about="#Forest">
+        <rdf:type rdf:resource="#Habitat"/>
+    </owl:NamedIndividual>
+</rdf:RDF>

@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+         xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+         xmlns:owl="http://www.w3.org/2002/07/owl#"
+         xmlns:dc="http://purl.org/dc/elements/1.1/"
+         xmlns:ex="http://example.org/library#">
+
+    <owl:Ontology rdf:about="http://example.org/library"/>
+
+    <!-- Classes -->
+    <owl:Class rdf:about="http://example.org/library#CreativeWork"/>
+    <owl:Class rdf:about="http://example.org/library#Book">
+        <rdfs:subClassOf rdf:resource="http://example.org/library#CreativeWork"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/library#Article">
+        <rdfs:subClassOf rdf:resource="http://example.org/library#CreativeWork"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/library#Person"/>
+    <owl:Class rdf:about="http://example.org/library#Author">
+        <rdfs:subClassOf rdf:resource="http://example.org/library#Person"/>
+    </owl:Class>
+    <owl:Class rdf:about="http://example.org/library#Publisher"/>
+    <owl:Class rdf:about="http://example.org/library#Genre"/>
+
+    <!-- Object Properties -->
+    <owl:ObjectProperty rdf:about="http://example.org/library#writtenBy">
+        <rdfs:domain rdf:resource="http://example.org/library#CreativeWork"/>
+        <rdfs:range rdf:resource="http://example.org/library#Author"/>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="http://example.org/library#publishedBy">
+        <rdfs:domain rdf:resource="http://example.org/library#Book"/>
+        <rdfs:range rdf:resource="http://example.org/library#Publisher"/>
+    </owl:ObjectProperty>
+    <owl:ObjectProperty rdf:about="http://example.org/library#hasGenre">
+        <rdfs:domain rdf:resource="http://example.org/library#CreativeWork"/>
+        <rdfs:range rdf:resource="http://example.org/library#Genre"/>
+    </owl:ObjectProperty>
+
+    <!-- Datatype Properties -->
+    <owl:DatatypeProperty rdf:about="http://example.org/library#title">
+        <rdfs:domain rdf:resource="http://example.org/library#CreativeWork"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://example.org/library#isbn">
+        <rdfs:domain rdf:resource="http://example.org/library#Book"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    <owl:DatatypeProperty rdf:about="http://example.org/library#year">
+        <rdfs:domain rdf:resource="http://example.org/library#CreativeWork"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    </owl:DatatypeProperty>
+
+    <!-- Individuals -->
+    <owl:NamedIndividual rdf:about="http://example.org/library#Tolkien">
+        <rdf:type rdf:resource="http://example.org/library#Author"/>
+    </owl:NamedIndividual>
+    <owl:NamedIndividual rdf:about="http://example.org/library#LOTR">
+        <rdf:type rdf:resource="http://example.org/library#Book"/>
+        <ex:writtenBy rdf:resource="http://example.org/library#Tolkien"/>
+    </owl:NamedIndividual>
+    <owl:NamedIndividual rdf:about="http://example.org/library#Fantasy">
+        <rdf:type rdf:resource="http://example.org/library#Genre"/>
+    </owl:NamedIndividual>
+</rdf:RDF>

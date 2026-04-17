@@ -1,0 +1,15 @@
+build/
+dist/
+search_images/
+docs/
+ref/
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.vscode/
+.idea/
+*.swp
+*.swo
+__pycache__/
+*.pyc

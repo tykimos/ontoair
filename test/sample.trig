@@ -1,0 +1,26 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <http://example.org/graph#> .
+
+ex:GraphOntology rdf:type owl:Ontology .
+
+ex:Event rdf:type owl:Class .
+ex:Location rdf:type owl:Class .
+ex:Person rdf:type owl:Class .
+ex:Attendee rdf:type owl:Class ;
+    rdfs:subClassOf ex:Person .
+
+ex:occursAt rdf:type owl:ObjectProperty ;
+    rdfs:domain ex:Event ;
+    rdfs:range ex:Location .
+ex:attendedBy rdf:type owl:ObjectProperty ;
+    rdfs:domain ex:Event ;
+    rdfs:range ex:Attendee .
+
+ex:eventName rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Event .
+
+ex:Conference2026 rdf:type ex:Event .
+ex:Seoul rdf:type ex:Location .
+ex:Alice rdf:type ex:Attendee .

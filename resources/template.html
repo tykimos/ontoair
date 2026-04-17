@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--src-w:340px}
+body{background:#fff;overflow:hidden;font-family:'SF Pro',system-ui,-apple-system,sans-serif;color:#333}
+#source{position:fixed;left:0;top:0;bottom:0;width:var(--src-w);background:#fafafa;border-right:1px solid #e0e0e0;overflow-y:auto;z-index:5;padding:10px 0;font-family:'SF Mono',Menlo,Monaco,monospace;font-size:10px;line-height:1.55;color:#444;transition:transform 0.22s}
+#source h4{padding:4px 14px 8px;font-family:'SF Pro',system-ui,sans-serif;font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.src-line{display:flex;padding:1px 12px;cursor:pointer;white-space:pre-wrap;word-break:break-all}
+.src-line:hover{background:#f0f0f0}
+.src-line.active{background:rgba(240,190,40,0.20);border-left:3px solid #e0a020;padding-left:9px}
+.src-line.neighbor{background:rgba(58,123,213,0.10);border-left:3px solid #3a7bd5;padding-left:9px}
+.src-ln{color:#c0c0c0;width:28px;flex-shrink:0;text-align:right;padding-right:8px;user-select:none}
+.src-code{flex:1}
+#src-resize{position:fixed;top:0;bottom:0;width:8px;background:transparent;cursor:col-resize;z-index:8;left:calc(var(--src-w) - 4px);transition:left 0.22s}
+#src-resize:hover{background:rgba(0,0,0,0.06)}
+#src-toggle{position:fixed;top:16px;left:calc(var(--src-w) - 18px);z-index:15;width:26px;height:26px;border:1px solid #d8d8d8;border-radius:6px;background:#fff;cursor:pointer;font-family:monospace;font-size:14px;color:#666;box-shadow:0 1px 4px rgba(0,0,0,0.05);transition:left 0.22s;display:flex;align-items:center;justify-content:center}
+#src-toggle:hover{background:#f5f5f5}
+body.src-collapsed #source{transform:translateX(-100%)}
+body.src-collapsed #src-toggle{left:6px}
+body.src-collapsed #src-resize{display:none}
+body.src-collapsed #hud,body.src-collapsed #legend{left:16px}
+#hud{position:fixed;top:16px;left:calc(var(--src-w) + 16px);z-index:10;background:rgba(255,255,255,0.94);border:1px solid #e0e0e0;border-radius:10px;padding:16px 20px;min-width:220px;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:left 0.22s}
+#hud h2{font-size:13px;font-weight:700;letter-spacing:.3px;margin-bottom:4px}
+#hud .fn{font-size:11px;color:#999;margin-bottom:8px;word-break:break-all}
+#hud .info{font-size:11px;color:#666;line-height:1.7}
+#legend{position:fixed;bottom:16px;left:calc(var(--src-w) + 16px);z-index:10;background:rgba(255,255,255,0.94);border:1px solid #e0e0e0;border-radius:10px;padding:14px 18px;box-shadow:0 2px 12px rgba(0,0,0,0.06);transition:left 0.22s}
+#legend h3{font-size:10px;color:#aaa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px}
+.li{display:flex;align-items:center;gap:8px;padding:2px 0;font-size:11px;color:#555}
+.ls{width:30px;height:14px;flex-shrink:0}
+#tooltip{position:fixed;display:none;z-index:100;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.1);max-width:360px}
+.tn{font-weight:700;font-size:13px}.tt{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.tu{font-size:10px;color:#bbb;margin-top:4px;word-break:break-all}.tp{margin-top:6px;font-size:11px;color:#666;line-height:1.5}
+#controls{position:fixed;bottom:16px;right:16px;z-index:10;display:flex;gap:6px}
+#controls button{background:#fff;border:1px solid #ddd;border-radius:8px;padding:7px 16px;color:#555;font-size:11px;cursor:pointer;transition:all .15s}
+#controls button:hover{background:#f5f5f5;border-color:#ccc}
+#controls button.active{background:#333;color:#fff;border-color:#333}
+#search{position:fixed;top:16px;right:16px;z-index:10;background:rgba(255,255,255,0.94);border:1px solid #e0e0e0;border-radius:8px;padding:8px 14px;font-size:12px;width:200px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+#search:focus{border-color:#999;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+</style>
+</head>
+<body>
+<aside id='source'><h4>Source</h4><div id='src-body'></div></aside>
+<div id='src-resize' title='Resize source'></div>
+<button id='src-toggle' title='Toggle source'>‹</button>
+<div id='hud'><h2>OntoAir</h2><div class='fn' id='fn'></div><div class='info' id='info'>Loading...</div></div>
+<div id='legend'>
+  <h3>Nodes</h3>
+  <div class='li'><svg class='ls' viewBox='0 0 18 18'><circle cx='9' cy='9' r='7' fill='#fff' stroke='#333' stroke-width='1.5' stroke-dasharray='2 1.5'/></svg>owl:Class</div>
+  <div class='li'><svg class='ls' viewBox='0 0 18 18'><circle cx='9' cy='9' r='7' fill='#fff' stroke='#333' stroke-width='1.5'/></svg>Individual</div>
+  <h3 style='margin-top:8px'>Edges</h3>
+  <div class='li'><svg class='ls' viewBox='0 0 30 10'><line x1='1' y1='5' x2='22' y2='5' stroke='#555' stroke-width='1.5' stroke-dasharray='2.5 1.5'/><polygon points='22,2 29,5 22,8' fill='#555'/></svg>ObjectProperty (schema)</div>
+  <div class='li'><svg class='ls' viewBox='0 0 30 10'><line x1='1' y1='5' x2='22' y2='5' stroke='#222' stroke-width='1.5'/><polygon points='22,2 29,5 22,8' fill='#222'/></svg>ObjectProperty (instance)</div>
+  <div class='li'><svg class='ls' viewBox='0 0 30 10'><line x1='1' y1='5' x2='20' y2='5' stroke='#333' stroke-width='1.5' stroke-dasharray='2.5 1.5'/><polygon points='20,1 29,5 20,9' fill='#fff' stroke='#333' stroke-width='1.3'/></svg>subClassOf</div>
+  <div class='li'><svg class='ls' viewBox='0 0 30 10'><line x1='1' y1='5' x2='29' y2='5' stroke='#aaa' stroke-width='1' stroke-dasharray='2 2'/></svg>rdf:type</div>
+  <div class='li'><svg class='ls' viewBox='0 0 30 14'><polyline points='2,10 9,3 28,3' fill='none' stroke='#888' stroke-width='1.2'/></svg>DatatypeProperty</div>
+</div>
+<div id='tooltip'><div class='tn' id='ttn'></div><div class='tt' id='ttt'></div><div class='tu' id='ttu'></div><div class='tp' id='ttp'></div></div>
+<input type='text' id='search' placeholder='Search nodes...'>
+<div id='controls'>
+  <button id='bh' class='active'>Hierarchy</button>
+  <button id='bf'>Force</button>
+  <button id='br'>Reset</button>
+</div>
+<script>{{THREE_JS}}</script>
+<script>{{ORBIT_JS}}</script>
+<script>
+const RAW=`{{RAW}}`;
+const FMT='{{FMT}}';
+const FNAME='{{FNAME}}';
+</script>
+<script>{{ONTOAIR_JS}}</script>
+</body>
+</html>
