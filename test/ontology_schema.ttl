@@ -1,0 +1,566 @@
+@prefix mimir: <http://assi-mimir.ai/ontology#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+# ============================================================
+# DOMAIN CLASSES
+# ============================================================
+
+mimir:Competition a owl:Class ;
+    rdfs:comment "AI Red Team 대회" .
+
+mimir:Track a owl:Class ;
+    rdfs:comment "대회 트랙 (Triage, Robot, SOC, Aircraft)" .
+
+mimir:Channel a owl:Class ;
+    rdfs:comment "공격 채널 (TEXT, AUDIO, DOCUMENT, IMAGE)" .
+
+mimir:Model a owl:Class ;
+    rdfs:comment "수비 AI 모델" .
+
+mimir:Technique a owl:Class ;
+    rdfs:comment "공격 기법" .
+
+mimir:Bounty a owl:Class ;
+    rdfs:comment "모델×채널×트랙별 바운티 배율" .
+
+mimir:OutcomeCategory a owl:Class ;
+    rdfs:comment "공격 결과 분류" .
+
+# ============================================================
+# OBSERVATION CLASSES
+# ============================================================
+
+mimir:Observation a owl:Class ;
+    rdfs:comment "관찰 데이터 (최상위)" .
+
+mimir:AttackAttempt a owl:Class ;
+    rdfs:comment "실제 공격 시도 + 결과" ;
+    rdfs:subClassOf mimir:Observation .
+
+mimir:PretestResult a owl:Class ;
+    rdfs:comment "블루팀 사전 평가 결과" ;
+    rdfs:subClassOf mimir:Observation .
+
+mimir:StrategyInsight a owl:Class ;
+    rdfs:comment "전략 분석 인사이트" ;
+    rdfs:subClassOf mimir:Observation .
+
+mimir:CompetitorIntel a owl:Class ;
+    rdfs:comment "경쟁자 정보" ;
+    rdfs:subClassOf mimir:Observation .
+
+mimir:LeaderboardSnapshot a owl:Class ;
+    rdfs:comment "리더보드 스냅샷" ;
+    rdfs:subClassOf mimir:Observation .
+
+mimir:SubmissionBatch a owl:Class ;
+    rdfs:comment "한 사이클에서 함께 제출된 배치와 그 성과" ;
+    rdfs:subClassOf mimir:Observation .
+
+mimir:PivotDecision a owl:Class ;
+    rdfs:comment "배치 평가 후 전략 전환, 강화, 쿨다운 결정" ;
+    rdfs:subClassOf mimir:Observation .
+
+# ============================================================
+# RESULT CLASSES
+# ============================================================
+
+mimir:ModelResult a owl:Class ;
+    rdfs:comment "공격 시도 내 개별 모델 결과" .
+
+# ============================================================
+# KNOWLEDGE CLASSES
+# ============================================================
+
+mimir:ModelProfile a owl:Class ;
+    rdfs:comment "모델별 집약 프로필 (취약/저항 통계)" .
+
+mimir:Hypothesis a owl:Class ;
+    rdfs:comment "검증 대상 가설" .
+
+mimir:Rule a owl:Class ;
+    rdfs:comment "확인된 규칙" .
+
+# ============================================================
+# OBJECT PROPERTIES
+# ============================================================
+
+mimir:inTrack a owl:ObjectProperty ;
+    rdfs:comment "관찰이 속한 트랙" ;
+    rdfs:domain mimir:AttackAttempt ;
+    rdfs:range mimir:Track .
+
+mimir:viaChannel a owl:ObjectProperty ;
+    rdfs:comment "공격에 사용된 채널" ;
+    rdfs:domain mimir:AttackAttempt ;
+    rdfs:range mimir:Channel .
+
+mimir:usesTechnique a owl:ObjectProperty ;
+    rdfs:comment "사용된 공격 기법" ;
+    rdfs:domain mimir:AttackAttempt ;
+    rdfs:range mimir:Technique .
+
+mimir:hasModelResult a owl:ObjectProperty ;
+    rdfs:comment "공격 시도의 개별 모델 결과" ;
+    rdfs:domain mimir:AttackAttempt ;
+    rdfs:range mimir:ModelResult .
+
+mimir:forModel a owl:ObjectProperty ;
+    rdfs:comment "결과가 해당하는 모델" ;
+    rdfs:domain mimir:ModelResult ;
+    rdfs:range mimir:Model .
+
+mimir:outcome a owl:ObjectProperty ;
+    rdfs:comment "모델 결과 (Breakthrough/Resisted/Pending/Unknown)" ;
+    rdfs:domain mimir:ModelResult ;
+    rdfs:range mimir:OutcomeCategory .
+
+mimir:profileOf a owl:ObjectProperty ;
+    rdfs:comment "프로필이 해당하는 모델" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range mimir:Model .
+
+mimir:profileForTrack a owl:ObjectProperty ;
+    rdfs:comment "프로필이 해당하는 트랙" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range mimir:Track .
+
+mimir:profileWeakTo a owl:ObjectProperty ;
+    rdfs:comment "모델이 취약한 기법" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range mimir:Technique .
+
+mimir:profileResistsTo a owl:ObjectProperty ;
+    rdfs:comment "모델이 저항하는 기법" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range mimir:Technique .
+
+mimir:hasBountyTrack a owl:ObjectProperty ;
+    rdfs:comment "바운티 적용 트랙" ;
+    rdfs:domain mimir:Bounty ;
+    rdfs:range mimir:Track .
+
+mimir:hasBountyChannel a owl:ObjectProperty ;
+    rdfs:comment "바운티 적용 채널" ;
+    rdfs:range mimir:Channel .
+
+mimir:hasBountyModel a owl:ObjectProperty ;
+    rdfs:comment "바운티 적용 모델" ;
+    rdfs:range mimir:Model .
+
+mimir:targetsModel a owl:ObjectProperty ;
+    rdfs:comment "사전 평가 대상 모델" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range mimir:Model .
+
+mimir:predictedOutcome a owl:ObjectProperty ;
+    rdfs:comment "사전 평가 예측 결과" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range mimir:OutcomeCategory .
+
+mimir:aboutTrack a owl:ObjectProperty ;
+    rdfs:comment "전략 관찰이 다루는 트랙" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range mimir:Track .
+
+mimir:aboutChannel a owl:ObjectProperty ;
+    rdfs:comment "전략 관찰이 다루는 채널" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range mimir:Channel .
+
+mimir:aboutTechnique a owl:ObjectProperty ;
+    rdfs:comment "전략 관찰이 다루는 기법" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range mimir:Technique .
+
+mimir:referencesAttack a owl:ObjectProperty ;
+    rdfs:comment "기존 공격 시도를 근거로 참조" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range mimir:AttackAttempt .
+
+mimir:derivedFromInsight a owl:ObjectProperty ;
+    rdfs:comment "인사이트에서 파생된 관찰" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range mimir:StrategyInsight .
+
+mimir:derivedFromHypothesis a owl:ObjectProperty ;
+    rdfs:comment "가설에서 파생된 관찰" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range mimir:Hypothesis .
+
+# ============================================================
+# DATATYPE PROPERTIES
+# ============================================================
+
+mimir:recordedAt a owl:DatatypeProperty ;
+    rdfs:comment "기록 시간" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:dateTime .
+
+mimir:narrative a owl:DatatypeProperty ;
+    rdfs:comment "관찰 서사 (공격 내용 등)" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:bountyMultiplier a owl:DatatypeProperty ;
+    rdfs:comment "바운티 배율" ;
+    rdfs:domain mimir:AttackAttempt ;
+    rdfs:range xsd:integer .
+
+mimir:confidence a owl:DatatypeProperty ;
+    rdfs:comment "결과 신뢰도 (HIGH/MEDIUM/LOW)" ;
+    rdfs:domain mimir:ModelResult ;
+    rdfs:range xsd:string .
+
+mimir:breachCount a owl:DatatypeProperty ;
+    rdfs:comment "돌파 횟수" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range xsd:integer .
+
+mimir:resistCount a owl:DatatypeProperty ;
+    rdfs:comment "저항 횟수" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range xsd:integer .
+
+mimir:breachRate a owl:DatatypeProperty ;
+    rdfs:comment "돌파율 (0.0~1.0)" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range xsd:decimal .
+
+mimir:totalAttempts a owl:DatatypeProperty ;
+    rdfs:comment "총 시도 횟수" ;
+    rdfs:domain mimir:ModelProfile ;
+    rdfs:range xsd:integer .
+
+mimir:attackPayload a owl:DatatypeProperty ;
+    rdfs:comment "공격 페이로드 텍스트" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:string .
+
+mimir:payloadPath a owl:DatatypeProperty ;
+    rdfs:comment "제안된 payload 파일 경로" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:dossierPath a owl:DatatypeProperty ;
+    rdfs:comment "research gate dossier 파일 경로" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:gateDecision a owl:DatatypeProperty ;
+    rdfs:comment "제출 게이트 판정 (GO/HOLD/RETRY/COOLDOWN)" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:noveltyScore a owl:DatatypeProperty ;
+    rdfs:comment "신규성 점수 (1~5)" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:integer .
+
+mimir:duplicateRiskScore a owl:DatatypeProperty ;
+    rdfs:comment "중복 위험 점수 (1~5, 높을수록 위험)" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:integer .
+
+mimir:evidenceStrengthScore a owl:DatatypeProperty ;
+    rdfs:comment "근거 강도 점수 (1~5)" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:integer .
+
+mimir:researchDepthScore a owl:DatatypeProperty ;
+    rdfs:comment "사전 연구 깊이 점수 (1~5)" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:integer .
+
+mimir:expectedBreakthroughs a owl:DatatypeProperty ;
+    rdfs:comment "예상 돌파 모델 수" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:integer .
+
+mimir:expectedROI a owl:DatatypeProperty ;
+    rdfs:comment "예상 ROI 또는 기대 가치" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:decimal .
+
+mimir:submissionStatus a owl:DatatypeProperty ;
+    rdfs:comment "payload 상태 (candidate/submitted/accepted/rejected/retired)" ;
+    rdfs:domain mimir:AttackAttempt ;
+    rdfs:range xsd:string .
+
+mimir:batchLabel a owl:DatatypeProperty ;
+    rdfs:comment "배치 식별자" ;
+    rdfs:domain mimir:SubmissionBatch ;
+    rdfs:range xsd:string .
+
+mimir:batchSize a owl:DatatypeProperty ;
+    rdfs:comment "배치에 포함된 제출 수" ;
+    rdfs:domain mimir:SubmissionBatch ;
+    rdfs:range xsd:integer .
+
+mimir:batchBreakthroughs a owl:DatatypeProperty ;
+    rdfs:comment "배치에서 발생한 breakthrough 수" ;
+    rdfs:domain mimir:SubmissionBatch ;
+    rdfs:range xsd:integer .
+
+mimir:batchResists a owl:DatatypeProperty ;
+    rdfs:comment "배치에서 저항된 건수" ;
+    rdfs:domain mimir:SubmissionBatch ;
+    rdfs:range xsd:integer .
+
+mimir:batchROI a owl:DatatypeProperty ;
+    rdfs:comment "배치 실측 ROI" ;
+    rdfs:domain mimir:SubmissionBatch ;
+    rdfs:range xsd:decimal .
+
+mimir:pivotAction a owl:DatatypeProperty ;
+    rdfs:comment "전략 피벗 액션 (scale/cut/shift/cooldown 등)" ;
+    rdfs:domain mimir:PivotDecision ;
+    rdfs:range xsd:string .
+
+mimir:cooldownUntil a owl:DatatypeProperty ;
+    rdfs:comment "전략 또는 기법 쿨다운 종료 시점" ;
+    rdfs:domain mimir:PivotDecision ;
+    rdfs:range xsd:string .
+
+mimir:failurePattern a owl:DatatypeProperty ;
+    rdfs:comment "관찰된 반복 실패 패턴 요약" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:strategySummary a owl:DatatypeProperty ;
+    rdfs:comment "한 줄 전략 요약" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:decisionReason a owl:DatatypeProperty ;
+    rdfs:comment "판정 또는 피벗 결정 사유" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:approvedBreaches a owl:DatatypeProperty ;
+    rdfs:comment "이번 결과로 승인된 breach 수 증감" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:integer .
+
+mimir:scoreDelta a owl:DatatypeProperty ;
+    rdfs:comment "이번 결과로 인한 점수 변화" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:decimal .
+
+mimir:rankPosition a owl:DatatypeProperty ;
+    rdfs:comment "현재 리더보드 순위" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:integer .
+
+mimir:approvedCount a owl:DatatypeProperty ;
+    rdfs:comment "누적 승인 breach 수" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:integer .
+
+mimir:totalScore a owl:DatatypeProperty ;
+    rdfs:comment "현재 총 점수" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:decimal .
+
+mimir:similarityScore a owl:DatatypeProperty ;
+    rdfs:comment "성공 패턴과의 유사도 (0~1)" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:decimal .
+
+mimir:duplicateDistance a owl:DatatypeProperty ;
+    rdfs:comment "가장 가까운 기존 payload와의 의미적 거리 (0~1)" ;
+    rdfs:domain mimir:PretestResult ;
+    rdfs:range xsd:decimal .
+
+mimir:priorityScore a owl:DatatypeProperty ;
+    rdfs:comment "제출 우선순위 점수 (0~100)" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:decimal .
+
+mimir:successPatternFamily a owl:DatatypeProperty ;
+    rdfs:comment "성공 패턴 계열명" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:successFeatureVector a owl:DatatypeProperty ;
+    rdfs:comment "성공/실패 특징 벡터 요약" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:strategyWeight a owl:DatatypeProperty ;
+    rdfs:comment "현재 전략 가중치 또는 갱신 후 weight" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:decimal .
+
+mimir:weightDelta a owl:DatatypeProperty ;
+    rdfs:comment "전략 가중치 변화량" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:decimal .
+
+mimir:learningAction a owl:DatatypeProperty ;
+    rdfs:comment "학습 후 취한 조치 (scale/keep/shift/cooldown/prune)" ;
+    rdfs:domain mimir:Observation ;
+    rdfs:range xsd:string .
+
+mimir:hasCondition a owl:DatatypeProperty ;
+    rdfs:comment "규칙 조건" ;
+    rdfs:domain mimir:Rule ;
+    rdfs:range xsd:string .
+
+mimir:hasConclusion a owl:DatatypeProperty ;
+    rdfs:comment "규칙 결론" ;
+    rdfs:domain mimir:Rule ;
+    rdfs:range xsd:string .
+
+mimir:hasCriteria a owl:DatatypeProperty ;
+    rdfs:comment "가설 검증 기준" ;
+    rdfs:domain mimir:Hypothesis ;
+    rdfs:range xsd:string .
+
+mimir:bountyValue a owl:DatatypeProperty ;
+    rdfs:comment "바운티 배율 값" ;
+    rdfs:domain mimir:Bounty ;
+    rdfs:range xsd:integer .
+
+# ============================================================
+# ANNOTATION PROPERTIES
+# ============================================================
+
+mimir:evolvedAt a owl:AnnotationProperty ;
+    rdfs:comment "진화 발생 시간" .
+
+mimir:evolvedReason a owl:AnnotationProperty ;
+    rdfs:comment "진화 사유" .
+
+mimir:label a owl:AnnotationProperty ;
+    rdfs:comment "표시명" .
+
+# ============================================================
+# TRACK INSTANCES
+# ============================================================
+
+mimir:Triage a mimir:Track ;
+    mimir:label "응급실 분류" .
+
+mimir:Robot a mimir:Track ;
+    mimir:label "로봇 제어" .
+
+mimir:SOC a mimir:Track ;
+    mimir:label "보안 운영 센터" .
+
+mimir:Aircraft a mimir:Track ;
+    mimir:label "항공기" .
+
+# ============================================================
+# CHANNEL INSTANCES
+# ============================================================
+
+mimir:TEXT a mimir:Channel ;
+    mimir:label "텍스트" .
+
+mimir:AUDIO a mimir:Channel ;
+    mimir:label "오디오" .
+
+mimir:DOCUMENT a mimir:Channel ;
+    mimir:label "문서" .
+
+mimir:IMAGE a mimir:Channel ;
+    mimir:label "이미지" .
+
+# ============================================================
+# MODEL INSTANCES
+# ============================================================
+
+mimir:Claude a mimir:Model ;
+    mimir:label "Anthropic Claude Opus 4.6" .
+
+mimir:GPT54 a mimir:Model ;
+    mimir:label "OpenAI GPT-5.4" .
+
+mimir:GeminiFlash a mimir:Model ;
+    mimir:label "Google Gemini 3 Flash" .
+
+mimir:GeminiPro a mimir:Model ;
+    mimir:label "Google Gemini 3.1 Pro" .
+
+mimir:MiMo a mimir:Model ;
+    mimir:label "MiMo V2 Omni" .
+
+# ============================================================
+# OUTCOME INSTANCES
+# ============================================================
+
+mimir:Breakthrough a mimir:OutcomeCategory ;
+    mimir:label "돌파 성공" .
+
+mimir:Resisted a mimir:OutcomeCategory ;
+    mimir:label "방어 성공" .
+
+mimir:Pending a mimir:OutcomeCategory ;
+    mimir:label "평가 대기" .
+
+mimir:Unknown a mimir:OutcomeCategory ;
+    mimir:label "알 수 없음" .
+
+# ============================================================
+# TECHNIQUE INSTANCES
+# ============================================================
+
+mimir:DirectiveCitation a mimir:Technique ;
+    mimir:label "지시문 인용" .
+
+mimir:DualPhysicianWithLabs a mimir:Technique ;
+    mimir:label "이중 의사 + 검사실" .
+
+mimir:SinglePhysicianOrder a mimir:Technique ;
+    mimir:label "단일 의사 명령" .
+
+mimir:NewerDataSupersedes a mimir:Technique ;
+    mimir:label "최신 데이터 우선" .
+
+mimir:ActionIdExplicitMention a mimir:Technique ;
+    mimir:label "액션 ID 명시" .
+
+mimir:NewEventFabrication a mimir:Technique ;
+    mimir:label "새 이벤트 조작" .
+
+mimir:TemporalReframing a mimir:Technique ;
+    mimir:label "시간 재구성" .
+
+mimir:DiagnosisRevision a mimir:Technique ;
+    mimir:label "진단 수정" .
+
+mimir:RoleImpersonation a mimir:Technique ;
+    mimir:label "역할 가장" .
+
+mimir:ContextManipulation a mimir:Technique ;
+    mimir:label "컨텍스트 조작" .
+
+mimir:GroundTruthOverride a mimir:Technique ;
+    mimir:label "기준 정보 덮어쓰기" .
+
+mimir:ObjectiveLabsVsMonitor a mimir:Technique ;
+    mimir:label "검사실 vs 모니터" .
+
+mimir:SensorCalibrationDoubt a mimir:Technique ;
+    mimir:label "센서 보정 의심" .
+
+mimir:ExtremeEscalation a mimir:Technique ;
+    mimir:label "극단적 에스컬레이션" .
+
+mimir:SingleAuthority a mimir:Technique ;
+    mimir:label "단일 권위" .
+
+mimir:AnyRuleCompliance a mimir:Technique ;
+    mimir:label "임의 규칙 준수" .
+
+mimir:TemporalManipulation a mimir:Technique ;
+    mimir:label "시간 조작" .
+
+mimir:MathematicalProof a mimir:Technique ;
+    mimir:label "수학적 증명" .
+
+mimir:MultiPartyAudio a mimir:Technique ;
+    mimir:label "다자 음성" .

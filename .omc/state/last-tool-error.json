@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"killall ontoair 2>/dev/null || true\\nsleep 1\\nbash /Users/tykimos/assi/ontoair/scripts/build.sh 2>&1 && \\\\\\nrm -rf /Applications/OntoAir.app && \\\\\\ncp -R /Users/tykimos/assi/ontoair/build/...",
-  "error": "Exit code 1\n=== OntoAir Build ===\n  Compiling app...\n  Compiling QLOntoPreview extension...\n  Code signing...\n/Users/tykimos/assi/ontoair/build/OntoAir.app/Contents/PlugIns/QLOntoPreview.appex: replacing existing signature\n/Users/tykimos/assi/ontoair/build/OntoAir.app: replacing existing signature\n=== Build complete: /Users/tykimos/assi/ontoair/build/OntoAir.app ===\n\nTo install:  ./scripts/install.sh\nqlmanage: resetting quicklookd\nqlmanage: call reset on cache\n=== Extension ===\n     com.ontoair....",
-  "timestamp": "2026-04-16T14:08:36.450Z",
-  "retry_count": 1
-}

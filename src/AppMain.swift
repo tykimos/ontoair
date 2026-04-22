@@ -1,7 +1,7 @@
 import Cocoa
 import WebKit
 
-class DropWebView: WKWebView {
+class DropWebView: WKWebView, WKUIDelegate {
     var onDrop: ((URL) -> Void)?
 
     override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {}
@@ -9,8 +9,18 @@ class DropWebView: WKWebView {
     override init(frame: NSRect, configuration: WKWebViewConfiguration) {
         super.init(frame: frame, configuration: configuration)
         registerForDraggedTypes([.fileURL])
+        self.uiDelegate = self
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    // Auto-grant camera permission for MediaPipe hand tracking (NSCameraUsageDescription handles user consent)
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        decisionHandler(.grant)
+    }
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
         if let urls = fileURLs(sender), urls.contains(where: { isOnto($0) }) { return .copy }
@@ -50,17 +60,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        // Allow the loaded page to fetch sibling file:// resources (MediaPipe WASM/.data files).
+        config.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
+        // Enable MediaDevices (getUserMedia) for in-app camera-based hand control.
+        config.preferences.setValue(true, forKey: "mediaDevicesEnabled")
         let dw = DropWebView(frame: window.contentView!.bounds, configuration: config)
         dw.autoresizingMask = [.width, .height]
         dw.onDrop = { [weak self] url in self?.loadOntology(url: url) }
+        if #available(macOS 13.3, *) { dw.isInspectable = true }
         webView = dw
         window.contentView?.addSubview(webView)
 
-        webView.loadHTMLString(welcomeHTML(), baseURL: nil)
+        webView.loadHTMLString(welcomeHTML(), baseURL: Bundle.main.resourceURL)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
-        // Load any file that was passed before window was ready
         if let url = pendingURL {
             pendingURL = nil
             loadOntology(url: url)
@@ -94,7 +108,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             .replacingOccurrences(of: "$", with: "\\$")
 
         let html = OntoAirHTML.build(bundle: Bundle.main, escaped: escaped, format: format, fileName: url.lastPathComponent)
-        webView.loadHTMLString(html, baseURL: nil)
+        // Use bundle resource URL as base so MediaPipe assets (mediapipe/*) load via relative paths
+        webView.loadHTMLString(html, baseURL: Bundle.main.resourceURL)
         window.title = "OntoAir - \(url.lastPathComponent)"
     }
 

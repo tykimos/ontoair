@@ -1,0 +1,236 @@
+@prefix sto:   <http://onto-thema.local/ontology#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+# === 온톨로지 메타데이터 ===
+<http://onto-thema.local/ontology>
+    a owl:Ontology ;
+    rdfs:label "Stock Theme Ontology"@ko ;
+    owl:versionInfo "1.0" .
+
+# === 클래스 정의 ===
+
+sto:Company a owl:Class ;
+    rdfs:label "상장 종목"@ko ;
+    rdfs:comment "KOSPI/KOSDAQ 상장 종목"@ko .
+
+sto:Theme a owl:Class ;
+    rdfs:label "테마"@ko ;
+    rdfs:comment "시장 내러티브 또는 투자 해석 단위"@ko .
+
+sto:CompanyThemeRelation a owl:Class ;
+    rdfs:label "종목-테마 연결"@ko ;
+    rdfs:comment "종목과 테마의 연결. reason, lastUpdatedAt, 근거를 보유하는 핵심 객체"@ko .
+
+sto:Evidence a owl:Class ;
+    rdfs:label "근거 문서"@ko ;
+    rdfs:comment "연결의 근거가 되는 뉴스, 공시, IR 자료 등"@ko .
+
+sto:Event a owl:Class ;
+    rdfs:label "사건"@ko ;
+    rdfs:comment "연결을 촉발하거나 강화하는 현실 사건"@ko .
+
+sto:Snapshot a owl:Class ;
+    rdfs:label "스냅샷"@ko ;
+    rdfs:comment "시점별 CompanyThemeRelation 집합을 담는 Named Graph의 메타데이터"@ko .
+
+# === Datatype Properties (속성) ===
+
+# Company 속성
+sto:stockCode a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "종목코드"@ko .
+
+sto:stockName a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "종목명"@ko .
+
+sto:market a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "시장 구분"@ko .
+
+sto:sector a owl:DatatypeProperty ;
+    rdfs:domain sto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "업종 분류"@ko .
+
+sto:companyAlias a owl:DatatypeProperty ;
+    rdfs:domain sto:Company ;
+    rdfs:range xsd:string ;
+    rdfs:label "종목명 별칭"@ko ;
+    rdfs:comment "뉴스/공시에서 다양한 표기로 언급되는 종목명 별칭 (한/영, 축약형 등)"@ko .
+
+# Theme 속성
+sto:themeId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Theme ;
+    rdfs:range xsd:string ;
+    rdfs:label "테마 ID"@ko .
+
+sto:displayName a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Theme ;
+    rdfs:range xsd:string ;
+    rdfs:label "테마 표시명"@ko .
+
+sto:alias a owl:DatatypeProperty ;
+    rdfs:domain sto:Theme ;
+    rdfs:range xsd:string ;
+    rdfs:label "테마 별칭"@ko .
+
+sto:description a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Theme ;
+    rdfs:range xsd:string ;
+    rdfs:label "설명"@ko .
+
+# CompanyThemeRelation 속성
+sto:reason a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:CompanyThemeRelation ;
+    rdfs:range xsd:string ;
+    rdfs:label "연결 이유"@ko .
+
+sto:displayOrder a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:CompanyThemeRelation ;
+    rdfs:range xsd:integer ;
+    rdfs:label "표시 순서"@ko .
+
+sto:lastUpdatedAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:CompanyThemeRelation ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "마지막 갱신 시각"@ko .
+
+sto:createdAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "최초 등록 시각"@ko .
+
+sto:updatedAt a owl:DatatypeProperty ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "최종 갱신 시각"@ko .
+
+# Evidence 속성
+sto:evidenceId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range xsd:string ;
+    rdfs:label "근거 ID"@ko .
+
+sto:sourceType a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range xsd:string ;
+    rdfs:label "출처 유형"@ko .
+
+sto:sourceUrl a owl:DatatypeProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range xsd:anyURI ;
+    rdfs:label "원문 URL"@ko .
+
+sto:title a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range xsd:string ;
+    rdfs:label "문서 제목"@ko .
+
+sto:contentSummary a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range xsd:string ;
+    rdfs:label "핵심 내용 요약"@ko .
+
+sto:publishedAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "원문 발행 시각"@ko .
+
+sto:collectedAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "시스템 수집 시각"@ko .
+
+# Event 속성
+sto:eventId a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Event ;
+    rdfs:range xsd:string ;
+    rdfs:label "사건 ID"@ko .
+
+sto:eventType a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Event ;
+    rdfs:range xsd:string ;
+    rdfs:label "사건 유형"@ko .
+
+sto:occurredAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Event ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "발생 시각"@ko .
+
+# Snapshot 속성
+sto:generatedAt a owl:DatatypeProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:Snapshot ;
+    rdfs:range xsd:dateTime ;
+    rdfs:label "스냅샷 생성 시각"@ko .
+
+# === Object Properties (관계) ===
+
+sto:hasRelation a owl:ObjectProperty ;
+    rdfs:domain sto:Company ;
+    rdfs:range sto:CompanyThemeRelation ;
+    rdfs:label "종목이 연결을 가짐"@ko .
+
+sto:belongsToCompany a owl:ObjectProperty ;
+    owl:inverseOf sto:hasRelation ;
+    rdfs:domain sto:CompanyThemeRelation ;
+    rdfs:range sto:Company ;
+    rdfs:label "연결이 종목에 속함"@ko .
+
+sto:refersToTheme a owl:ObjectProperty, owl:FunctionalProperty ;
+    rdfs:domain sto:CompanyThemeRelation ;
+    rdfs:range sto:Theme ;
+    rdfs:label "연결이 테마를 참조"@ko .
+
+sto:referencedByRelation a owl:ObjectProperty ;
+    owl:inverseOf sto:refersToTheme ;
+    rdfs:domain sto:Theme ;
+    rdfs:range sto:CompanyThemeRelation ;
+    rdfs:label "테마가 연결에 의해 참조됨"@ko .
+
+sto:supportedBy a owl:ObjectProperty ;
+    rdfs:domain sto:CompanyThemeRelation ;
+    rdfs:range sto:Evidence ;
+    rdfs:label "연결이 근거에 의해 뒷받침됨"@ko .
+
+sto:supports a owl:ObjectProperty ;
+    owl:inverseOf sto:supportedBy ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range sto:CompanyThemeRelation ;
+    rdfs:label "근거가 연결을 뒷받침함"@ko .
+
+sto:triggeredBy a owl:ObjectProperty ;
+    rdfs:domain sto:CompanyThemeRelation ;
+    rdfs:range sto:Event ;
+    rdfs:label "연결이 사건에 의해 촉발됨"@ko .
+
+sto:triggers a owl:ObjectProperty ;
+    owl:inverseOf sto:triggeredBy ;
+    rdfs:domain sto:Event ;
+    rdfs:range sto:CompanyThemeRelation ;
+    rdfs:label "사건이 연결을 촉발함"@ko .
+
+sto:mentionsCompany a owl:ObjectProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range sto:Company ;
+    rdfs:label "문서가 종목을 언급"@ko .
+
+sto:mentionedInEvidence a owl:ObjectProperty ;
+    owl:inverseOf sto:mentionsCompany ;
+    rdfs:domain sto:Company ;
+    rdfs:range sto:Evidence ;
+    rdfs:label "종목이 문서에서 언급됨"@ko .
+
+sto:relatesToTheme a owl:ObjectProperty ;
+    rdfs:domain sto:Evidence ;
+    rdfs:range sto:Theme ;
+    rdfs:label "문서가 테마와 관련"@ko .
+
+sto:relatedEvidence a owl:ObjectProperty ;
+    owl:inverseOf sto:relatesToTheme ;
+    rdfs:domain sto:Theme ;
+    rdfs:range sto:Evidence ;
+    rdfs:label "테마와 관련된 문서"@ko .

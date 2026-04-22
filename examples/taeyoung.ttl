@@ -1,0 +1,264 @@
+@prefix ex: <http://example.org/ontology#> .
+@prefix inst: <http://example.org/resource/> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix schema: <https://schema.org/> .
+@prefix org: <http://www.w3.org/ns/org#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+
+#################################################################
+# Ontology metadata
+#################################################################
+
+<http://example.org/ontology>
+    a owl:Ontology ;
+    rdfs:label "Taeyoung Profile Ontology"@en ;
+    rdfs:label "태영 프로필 온톨로지"@ko ;
+    rdfs:comment "A simple ontology example describing Taeyoung as a person, roles, affiliations, and interests."@en .
+
+#################################################################
+# Class definitions
+#################################################################
+
+ex:Person a owl:Class ;
+    rdfs:label "Person"@en ;
+    rdfs:label "사람"@ko ;
+    owl:equivalentClass foaf:Person .
+
+ex:Organization a owl:Class ;
+    rdfs:label "Organization"@en ;
+    rdfs:label "조직"@ko ;
+    owl:equivalentClass org:Organization .
+
+ex:Role a owl:Class ;
+    rdfs:label "Role"@en ;
+    rdfs:label "역할"@ko .
+
+ex:Interest a owl:Class ;
+    rdfs:label "Interest"@en ;
+    rdfs:label "관심 분야"@ko .
+
+ex:ResearchArea a owl:Class ;
+    rdfs:subClassOf ex:Interest ;
+    rdfs:label "Research Area"@en ;
+    rdfs:label "연구 분야"@ko .
+
+ex:Book a owl:Class ;
+    rdfs:label "Book"@en ;
+    rdfs:label "도서"@ko .
+
+ex:Paper a owl:Class ;
+    rdfs:label "Paper"@en ;
+    rdfs:label "논문"@ko .
+
+#################################################################
+# Property definitions
+#################################################################
+
+ex:hasRole a owl:ObjectProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Role ;
+    rdfs:label "has role"@en ;
+    rdfs:label "역할을 가진다"@ko .
+
+ex:affiliatedWith a owl:ObjectProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Organization ;
+    rdfs:label "affiliated with"@en ;
+    rdfs:label "소속된다"@ko .
+
+ex:interestedIn a owl:ObjectProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:Interest ;
+    rdfs:label "interested in"@en ;
+    rdfs:label "관심이 있다"@ko .
+
+ex:authorOf a owl:ObjectProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range rdf:Resource ;
+    rdfs:label "author of"@en ;
+    rdfs:label "저자이다"@ko .
+
+ex:researcherIn a owl:ObjectProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range ex:ResearchArea ;
+    rdfs:label "researcher in"@en ;
+    rdfs:label "연구 분야"@ko .
+
+ex:hasNationality a owl:DatatypeProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range xsd:string ;
+    rdfs:label "has nationality"@en ;
+    rdfs:label "국적"@ko .
+
+ex:birthYear a owl:DatatypeProperty ;
+    rdfs:domain ex:Person ;
+    rdfs:range xsd:gYear ;
+    rdfs:label "birth year"@en ;
+    rdfs:label "출생연도"@ko .
+
+#################################################################
+# Person individual
+#################################################################
+
+inst:Taeyoung
+    a ex:Person, foaf:Person, schema:Person ;
+    rdfs:label "Taeyoung Kim"@en ;
+    rdfs:label "김태영"@ko ;
+    foaf:name "Taeyoung Kim" ;
+    schema:name "김태영"@ko ;
+    ex:birthYear "1979"^^xsd:gYear ;
+    ex:hasNationality "Republic of Korea" ;
+    ex:hasRole inst:CEORole ,
+               inst:MicrosoftRDRole ,
+               inst:MicrosoftMVPRole ,
+               inst:AuthorRole ,
+               inst:ResearcherRole ;
+    ex:affiliatedWith inst:AIFactory ,
+                      inst:HancomInSpace ,
+                      inst:KARI ;
+    ex:interestedIn inst:GenerativeAI ,
+                    inst:AgenticAI ,
+                    inst:OntologyEngineering ,
+                    inst:EarthObservation ,
+                    inst:QuantumAI ;
+    ex:researcherIn inst:SpaceAI ,
+                    inst:DeepLearning ,
+                    inst:KnowledgeRepresentation ;
+    ex:authorOf inst:Book_DeepLearningWithPythonAndKeras ,
+                inst:Paper_SolarFarsideMagnetograms ;
+    schema:jobTitle "CEO"@en ;
+    schema:description "CEO of AI Factory, Microsoft Regional Director, Microsoft MVP, researcher, author, and educator working across AI, ontology, and scientific applications."@en ;
+    schema:description "인공지능팩토리 CEO이자 Microsoft Regional Director, Microsoft MVP, 연구자, 저자, 교육자이며 AI, 온톨로지, 과학기술 응용을 아우른다."@ko .
+
+#################################################################
+# Organizations
+#################################################################
+
+inst:AIFactory
+    a ex:Organization, org:Organization, schema:Organization ;
+    rdfs:label "AI Factory Co., Ltd."@en ;
+    rdfs:label "인공지능팩토리"@ko ;
+    schema:name "AI Factory Co., Ltd."@en .
+
+inst:HancomInSpace
+    a ex:Organization, org:Organization, schema:Organization ;
+    rdfs:label "Hancom InSpace"@en ;
+    rdfs:label "한컴인스페이스"@ko ;
+    schema:name "Hancom InSpace"@en .
+
+inst:KARI
+    a ex:Organization, org:Organization, schema:Organization ;
+    rdfs:label "Korea Aerospace Research Institute"@en ;
+    rdfs:label "한국항공우주연구원"@ko ;
+    schema:name "Korea Aerospace Research Institute"@en .
+
+#################################################################
+# Roles
+#################################################################
+
+inst:CEORole
+    a ex:Role ;
+    rdfs:label "CEO"@en ;
+    rdfs:label "대표이사"@ko .
+
+inst:MicrosoftRDRole
+    a ex:Role ;
+    rdfs:label "Microsoft Regional Director"@en ;
+    rdfs:label "Microsoft Regional Director"@ko .
+
+inst:MicrosoftMVPRole
+    a ex:Role ;
+    rdfs:label "Microsoft MVP"@en ;
+    rdfs:label "Microsoft MVP"@ko .
+
+inst:AuthorRole
+    a ex:Role ;
+    rdfs:label "Author"@en ;
+    rdfs:label "저자"@ko .
+
+inst:ResearcherRole
+    a ex:Role ;
+    rdfs:label "Researcher"@en ;
+    rdfs:label "연구자"@ko .
+
+#################################################################
+# Interests / research areas
+#################################################################
+
+inst:GenerativeAI
+    a ex:Interest ;
+    rdfs:label "Generative AI"@en ;
+    rdfs:label "생성형 AI"@ko .
+
+inst:AgenticAI
+    a ex:Interest ;
+    rdfs:label "Agentic AI"@en ;
+    rdfs:label "에이전트형 AI"@ko .
+
+inst:OntologyEngineering
+    a ex:Interest ;
+    rdfs:label "Ontology Engineering"@en ;
+    rdfs:label "온톨로지 엔지니어링"@ko .
+
+inst:EarthObservation
+    a ex:Interest ;
+    rdfs:label "Earth Observation"@en ;
+    rdfs:label "지구관측"@ko .
+
+inst:QuantumAI
+    a ex:Interest ;
+    rdfs:label "Quantum AI"@en ;
+    rdfs:label "양자 AI"@ko .
+
+inst:SpaceAI
+    a ex:ResearchArea ;
+    rdfs:label "Space AI"@en ;
+    rdfs:label "우주 AI"@ko .
+
+inst:DeepLearning
+    a ex:ResearchArea ;
+    rdfs:label "Deep Learning"@en ;
+    rdfs:label "딥러닝"@ko .
+
+inst:KnowledgeRepresentation
+    a ex:ResearchArea ;
+    rdfs:label "Knowledge Representation"@en ;
+    rdfs:label "지식표현"@ko .
+
+#################################################################
+# Works
+#################################################################
+
+inst:Book_DeepLearningWithPythonAndKeras
+    a ex:Book, schema:Book ;
+    rdfs:label "Deep Learning with Python and Keras"@en ;
+    rdfs:label "블록과 함께하는 파이썬 딥러닝 케라스"@ko ;
+    schema:datePublished "2017"^^xsd:gYear .
+
+inst:Paper_SolarFarsideMagnetograms
+    a ex:Paper, schema:ScholarlyArticle ;
+    rdfs:label "Solar farside magnetograms from deep learning analysis of STEREO/EUVI data"@en ;
+    schema:name "Solar farside magnetograms from deep learning analysis of STEREO/EUVI data"@en .
+
+#################################################################
+# Optional logical axiom example
+#################################################################
+
+ex:Leader
+    a owl:Class ;
+    rdfs:label "Leader"@en ;
+    rdfs:label "리더"@ko ;
+    owl:equivalentClass [
+        a owl:Class ;
+        owl:intersectionOf (
+            ex:Person
+            [ a owl:Restriction ;
+              owl:onProperty ex:hasRole ;
+              owl:someValuesFrom inst:CEORole
+            ]
+        )
+    ] .

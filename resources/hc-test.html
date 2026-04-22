@@ -1,0 +1,13 @@
+<!DOCTYPE html><html><body>
+<div id="r">loading...</div>
+<script src="/resources/three.min.js"></script>
+<script src="/resources/OrbitControls.js"></script>
+<script src="/resources/mediapipe/hands.js"></script>
+<script>
+let s=[];
+s.push('THREE:'+(typeof THREE));
+s.push('Hands:'+(typeof Hands));
+try{const h=new Hands({locateFile:(f)=>'/resources/mediapipe/'+f});s.push('new Hands: ok');}catch(e){s.push('new Hands: '+e.message);}
+document.getElementById('r').innerText=s.join('\n');
+</script>
+</body></html>

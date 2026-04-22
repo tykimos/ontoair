@@ -13,3 +13,10 @@ ref/
 *.swo
 __pycache__/
 *.pyc
+
+# OMC (oh-my-claudecode) harness state — ephemeral, per-developer
+.omc/
+**/.omc/
+
+# Claude local settings
+.claude/settings.local.json

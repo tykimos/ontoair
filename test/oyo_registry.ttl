@@ -1,0 +1,225 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix oyo: <https://oyo-platform.org/ontology/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://oyo-platform.org/ontology> a owl:Ontology ;
+    rdfs:label "OYO Platform Registry Ontology" .
+
+oyo:Skill_Listening a owl:Class ;
+    rdfs:label "Listening" ;
+    rdfs:comment "Comprehension of spoken language" ;
+    rdfs:subClassOf oyo:Skill .
+
+oyo:Skill_Reading a owl:Class ;
+    rdfs:label "Reading" ;
+    rdfs:comment "Comprehension of written language" ;
+    rdfs:subClassOf oyo:Skill .
+
+oyo:Skill_Speaking a owl:Class ;
+    rdfs:label "Speaking" ;
+    rdfs:comment "Production of spoken language" ;
+    rdfs:subClassOf oyo:Skill .
+
+oyo:Skill_Writing a owl:Class ;
+    rdfs:label "Writing" ;
+    rdfs:comment "Production of written language" ;
+    rdfs:subClassOf oyo:Skill .
+
+oyo:cefrCode a owl:DatatypeProperty .
+
+oyo:exam_ielts a owl:NamedIndividual,
+        oyo:Exam ;
+    rdfs:label "IELTS" ;
+    oyo:testsLanguage oyo:lang_english .
+
+oyo:exam_toeic a owl:NamedIndividual,
+        oyo:Exam ;
+    rdfs:label "TOEIC" ;
+    oyo:testsLanguage oyo:lang_english .
+
+oyo:exam_topik a owl:NamedIndividual,
+        oyo:Exam ;
+    rdfs:label "TOPIK" ;
+    oyo:testsLanguage oyo:lang_korean .
+
+oyo:higherThan a owl:ObjectProperty,
+        owl:TransitiveProperty .
+
+oyo:ieltsBandRange a owl:ObjectProperty .
+
+oyo:isoCode a owl:DatatypeProperty .
+
+oyo:level_c2 a owl:NamedIndividual,
+        oyo:ProficiencyLevel ;
+    rdfs:label "Proficient (C2)" ;
+    oyo:cefrCode "C2"^^xsd:string ;
+    oyo:higherThan oyo:level_c1 ;
+    oyo:ieltsBandRange oyo:ielts_band_c2 ;
+    oyo:toeicListeningRange oyo:toeic_listening_c2 ;
+    oyo:toeicReadingRange oyo:toeic_reading_c2 .
+
+oyo:maxScore a owl:DatatypeProperty .
+
+oyo:minScore a owl:DatatypeProperty .
+
+oyo:testsLanguage a owl:ObjectProperty .
+
+oyo:toeicListeningRange a owl:ObjectProperty .
+
+oyo:toeicReadingRange a owl:ObjectProperty .
+
+oyo:ielts_band_a1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 2.5 ;
+    oyo:minScore 1.0 .
+
+oyo:ielts_band_a2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 3.5 ;
+    oyo:minScore 3.0 .
+
+oyo:ielts_band_b1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 5.0 ;
+    oyo:minScore 4.0 .
+
+oyo:ielts_band_b2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 6.5 ;
+    oyo:minScore 5.5 .
+
+oyo:ielts_band_c1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 8.0 ;
+    oyo:minScore 7.0 .
+
+oyo:ielts_band_c2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 9.0 ;
+    oyo:minScore 8.5 .
+
+oyo:lang_korean a owl:NamedIndividual,
+        oyo:Language ;
+    rdfs:label "Korean" ;
+    oyo:isoCode "ko"^^xsd:string .
+
+oyo:level_a1 a owl:NamedIndividual,
+        oyo:ProficiencyLevel ;
+    rdfs:label "Beginner (A1)" ;
+    oyo:cefrCode "A1"^^xsd:string ;
+    oyo:ieltsBandRange oyo:ielts_band_a1 ;
+    oyo:toeicListeningRange oyo:toeic_listening_a1 ;
+    oyo:toeicReadingRange oyo:toeic_reading_a1 .
+
+oyo:level_a2 a owl:NamedIndividual,
+        oyo:ProficiencyLevel ;
+    rdfs:label "Elementary (A2)" ;
+    oyo:cefrCode "A2"^^xsd:string ;
+    oyo:higherThan oyo:level_a1 ;
+    oyo:ieltsBandRange oyo:ielts_band_a2 ;
+    oyo:toeicListeningRange oyo:toeic_listening_a2 ;
+    oyo:toeicReadingRange oyo:toeic_reading_a2 .
+
+oyo:level_b1 a owl:NamedIndividual,
+        oyo:ProficiencyLevel ;
+    rdfs:label "Intermediate (B1)" ;
+    oyo:cefrCode "B1"^^xsd:string ;
+    oyo:higherThan oyo:level_a2 ;
+    oyo:ieltsBandRange oyo:ielts_band_b1 ;
+    oyo:toeicListeningRange oyo:toeic_listening_b1 ;
+    oyo:toeicReadingRange oyo:toeic_reading_b1 .
+
+oyo:level_b2 a owl:NamedIndividual,
+        oyo:ProficiencyLevel ;
+    rdfs:label "Upper Intermediate (B2)" ;
+    oyo:cefrCode "B2"^^xsd:string ;
+    oyo:higherThan oyo:level_b1 ;
+    oyo:ieltsBandRange oyo:ielts_band_b2 ;
+    oyo:toeicListeningRange oyo:toeic_listening_b2 ;
+    oyo:toeicReadingRange oyo:toeic_reading_b2 .
+
+oyo:level_c1 a owl:NamedIndividual,
+        oyo:ProficiencyLevel ;
+    rdfs:label "Advanced (C1)" ;
+    oyo:cefrCode "C1"^^xsd:string ;
+    oyo:higherThan oyo:level_b2 ;
+    oyo:ieltsBandRange oyo:ielts_band_c1 ;
+    oyo:toeicListeningRange oyo:toeic_listening_c1 ;
+    oyo:toeicReadingRange oyo:toeic_reading_c1 .
+
+oyo:toeic_listening_a1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 60 ;
+    oyo:minScore 5 .
+
+oyo:toeic_listening_a2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 110 ;
+    oyo:minScore 60 .
+
+oyo:toeic_listening_b1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 275 ;
+    oyo:minScore 110 .
+
+oyo:toeic_listening_b2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 400 ;
+    oyo:minScore 275 .
+
+oyo:toeic_listening_c1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 490 ;
+    oyo:minScore 400 .
+
+oyo:toeic_listening_c2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 495 ;
+    oyo:minScore 490 .
+
+oyo:toeic_reading_a1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 60 ;
+    oyo:minScore 5 .
+
+oyo:toeic_reading_a2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 115 ;
+    oyo:minScore 60 .
+
+oyo:toeic_reading_b1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 275 ;
+    oyo:minScore 115 .
+
+oyo:toeic_reading_b2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 385 ;
+    oyo:minScore 275 .
+
+oyo:toeic_reading_c1 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 450 ;
+    oyo:minScore 385 .
+
+oyo:toeic_reading_c2 a owl:NamedIndividual,
+        oyo:ScoreRange ;
+    oyo:maxScore 495 ;
+    oyo:minScore 450 .
+
+oyo:Language a owl:Class .
+
+oyo:lang_english a owl:NamedIndividual,
+        oyo:Language ;
+    rdfs:label "English" ;
+    oyo:isoCode "en"^^xsd:string .
+
+oyo:Exam a owl:Class .
+
+oyo:Skill a owl:Class .
+
+oyo:ProficiencyLevel a owl:Class .
+
+oyo:ScoreRange a owl:Class .
+

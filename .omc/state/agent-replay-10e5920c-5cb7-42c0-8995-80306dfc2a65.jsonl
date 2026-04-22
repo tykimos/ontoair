@@ -1,9 +1,0 @@
-{"t":0,"agent":"ac39577","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"a981fa0","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"a4b3c04","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"ac8eb2a","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"system","event":"skill_invoked","skill_name":"webapp-testing"}
-{"t":0,"agent":"aa8f249","agent_type":"unknown","event":"agent_stop","success":true}
-{"t":0,"agent":"add2132","agent_type":"debugger","event":"agent_start","parent_mode":"none"}
-{"t":0,"agent":"add2132","agent_type":"debugger","event":"agent_stop","success":true,"duration_ms":160486}
-{"t":0,"agent":"a39c94d","agent_type":"unknown","event":"agent_stop","success":true}

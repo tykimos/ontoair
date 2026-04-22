@@ -29,6 +29,10 @@ for dest in "$APP/Contents/Resources" "$APPEX/Contents/Resources"; do
     cp "$PROJECT_ROOT/resources/ontoair.js"       "$dest/"
 done
 
+# Hand control + MediaPipe assets — main app only (QuickLook preview doesn't need camera)
+cp "$PROJECT_ROOT/resources/hand-control.js" "$APP/Contents/Resources/"
+cp -R "$PROJECT_ROOT/resources/mediapipe"    "$APP/Contents/Resources/"
+
 # Write PkgInfo
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 echo -n "XPC!????" > "$APPEX/Contents/PkgInfo"
