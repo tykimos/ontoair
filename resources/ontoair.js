@@ -317,7 +317,7 @@ function makeArrow(srcId,tgtId,label,color,hollow,dashed){
   const line=new THREE.Line(geo,mat);if(dashed)line.computeLineDistances();
   scene.add(line);
   const head=arrowHeadSprite(col,hollow);scene.add(head);
-  const obj={line,head,srcId,tgtId,label,type:'arrow2d',visible:true,headSize:head.userData.headSize,dashed:!!dashed,origColor:col,offset};
+  const obj={line,head,srcId,tgtId,label,type:'arrow2d',visible:true,headSize:head.userData.headSize,dashed:!!dashed,origColor:col,offset,origOffset:offset};
   arrowObjs.push(obj);
   if(label){const mid=sm.position.clone().add(tm.position).multiplyScalar(.5);const lbl=makeLabel(label,1.4);lbl.position.copy(mid);scene.add(lbl);obj.labelSprite=lbl;}
   updateArrow(obj);return obj;}
@@ -340,14 +340,21 @@ function updateArrow(a){
     if(a.labelSprite)a.labelSprite.position.copy(sm.position.clone().add(tm.position).multiplyScalar(.5));
     a._tangent=null;
   }else{
-    const midX=(srcPt.x+headCenter.x)/2,midY=(srcPt.y+headCenter.y)/2,midZ=(srcPt.z+headCenter.z)/2;
+    // Canonical perpendicular axis, shared by all arrows in this node-pair.
     const [fA,fB]=a.srcId<a.tgtId?[sm,tm]:[tm,sm];
     const cdx=fB.position.x-fA.position.x,cdy=fB.position.y-fA.position.y;
     const cpl=Math.hypot(cdx,cdy)||1;
+    const perpX=-cdy/cpl,perpY=cdx/cpl;
+    // Shift endpoints along perp so each arrow enters/exits off-center — prevents X-crossing at endpoints.
+    const endShift=a.offset*Math.min(sR,tR)*0.9;
+    srcPt.x+=perpX*endShift; srcPt.y+=perpY*endShift;
+    headCenter.x+=perpX*endShift; headCenter.y+=perpY*endShift;
+    // Gentle bend on top of the endpoint separation.
+    const midX=(srcPt.x+headCenter.x)/2,midY=(srcPt.y+headCenter.y)/2,midZ=(srcPt.z+headCenter.z)/2;
     const dx=headCenter.x-srcPt.x,dy=headCenter.y-srcPt.y;
     const pl=Math.hypot(dx,dy)||1;
-    const bend=a.offset*pl;
-    const cpX=midX+(-cdy/cpl)*bend,cpY=midY+(cdx/cpl)*bend,cpZ=midZ;
+    const bend=a.offset*pl*0.75;
+    const cpX=midX+perpX*bend,cpY=midY+perpY*bend,cpZ=midZ;
     const cp=new THREE.Vector3(cpX,cpY,cpZ);
     const curve=new THREE.QuadraticBezierCurve3(srcPt.clone(),cp,headCenter.clone());
     const pts=curve.getPoints(22);
@@ -358,14 +365,16 @@ function updateArrow(a){
     if(a.labelSprite)a.labelSprite.position.copy(curve.getPoint(0.5));
     a._tangent=curve.getTangentAt(1).normalize();
     a._cpWorld=cp;
+    a._endPt=headCenter.clone();
   }
   updateArrowRot(a);}
 
 function updateArrowRot(a){
   if(a.isLoop)return;
   if(a.offset&&a._cpWorld){
-    const tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);if(!tm)return;
-    const t=tm.position.clone().project(camera);const c=a._cpWorld.clone().project(camera);
+    const endWorld=a._endPt||(()=>{const tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);return tm?tm.position:null;})();
+    if(!endWorld)return;
+    const t=endWorld.clone().project(camera);const c=a._cpWorld.clone().project(camera);
     a.head.material.rotation=Math.atan2(t.y-c.y,t.x-c.x);return;
   }
   const sm=nodeMeshes.find(m=>m.userData.id===a.srcId),tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);if(!sm||!tm)return;
@@ -649,6 +658,8 @@ function updateEdgesFor(id){
       if(l.userData.dashed)l.computeLineDistances();
       if(l.userData.labelSprite)l.userData.labelSprite.position.copy(s.position.clone().add(t.position).multiplyScalar(.5));}}});
   arrowObjs.forEach(a=>{if(a.srcId===id||a.tgtId===id)updateArrow(a);});
+  // In 2D mode, re-evaluate curvature on all arrows — moving a node can both create new obstructions and clear old ones.
+  const b2=document.getElementById('b2');if(b2&&b2.classList.contains('active'))bendEdgesToAvoid();
 }
 
 canvas.addEventListener('mousemove',e=>{
@@ -742,6 +753,120 @@ function forceLayout(iter){iter=iter||300;const allIds=Object.keys(nodeMap),allE
     allIds.forEach(id=>{const n=nodeMap[id];n.x+=n.vx*.5;n.y+=n.vy*.5;n.z+=n.vz*.5;n.vx*=.85;n.vy*=.85;n.vz*=.85;});}
   applyPositions();}
 
+// 2D layered layout (mermaid-style): Sugiyama layering with dummy-node insertion so long edges
+// reserve X-slots in intermediate layers and real nodes are nudged aside out of those channels.
+function layout2D(){
+  const nodes=[...O.cls.map(c=>c.id),...O.ind.map(i=>i.id)];
+  const nodeSet=new Set(nodes);
+  const downRaw=[];
+  O.sub.forEach(([c,p])=>downRaw.push([p,c]));
+  O.op.forEach(op=>{const ds=O.dom.filter(d=>d.p===op.id).map(d=>d.c),rs=O.rng.filter(r=>r.p===op.id).map(r=>r.c);
+    ds.forEach(d=>rs.forEach(r=>downRaw.push([d,r])));});
+  O.typ.forEach(([i,c])=>downRaw.push([c,i]));
+  O.rel.forEach(r=>downRaw.push([r.s,r.o]));
+  const outAdj={};nodes.forEach(n=>outAdj[n]=[]);
+  const edgeKey=new Set();
+  downRaw.forEach(([s,t])=>{if(!nodeSet.has(s)||!nodeSet.has(t)||s===t)return;
+    const k=s+'|'+t;if(edgeKey.has(k))return;edgeKey.add(k);outAdj[s].push(t);});
+  const color={};nodes.forEach(n=>color[n]=0);
+  const keptEdges=[];
+  function dfs(n){color[n]=1;outAdj[n].forEach(t=>{if(color[t]===0){keptEdges.push([n,t]);dfs(t);}
+    else if(color[t]===2){keptEdges.push([n,t]);}});color[n]=2;}
+  nodes.forEach(n=>{if(color[n]===0)dfs(n);});
+  const dag={},inDeg={};nodes.forEach(n=>{dag[n]=[];inDeg[n]=0;});
+  keptEdges.forEach(([s,t])=>{dag[s].push(t);inDeg[t]++;});
+  const layer={};nodes.forEach(n=>layer[n]=0);
+  const q=nodes.filter(n=>inDeg[n]===0);const inCopy={...inDeg};
+  while(q.length){const n=q.shift();dag[n].forEach(t=>{layer[t]=Math.max(layer[t],layer[n]+1);inCopy[t]--;if(inCopy[t]===0)q.push(t);});}
+  nodes.forEach(n=>{if(inCopy[n]>0){let m=0;Object.keys(dag).forEach(s=>{if(dag[s].includes(n))m=Math.max(m,(layer[s]||0)+1);});layer[n]=m;}});
+  // Insert dummy nodes for edges spanning more than one layer; re-route adjacency chain through them.
+  const dummies=new Set();const adj={};nodes.forEach(n=>adj[n]=new Set());
+  keptEdges.forEach(([s,t])=>{
+    const ls=layer[s],lt=layer[t];
+    if(Math.abs(lt-ls)<=1){adj[s].add(t);adj[t].add(s);return;}
+    const step=lt>ls?1:-1;let prev=s;
+    for(let l=ls+step;l!==lt;l+=step){
+      const d='__d_'+s+'_'+t+'_l'+l;dummies.add(d);layer[d]=l;adj[d]=new Set();
+      adj[prev].add(d);adj[d].add(prev);prev=d;
+    }
+    adj[prev].add(t);adj[t].add(prev);
+  });
+  const allIds=[...nodes,...dummies];
+  const maxL=Math.max(0,...Object.values(layer));
+  const layers={};for(let l=0;l<=maxL;l++)layers[l]=[];
+  allIds.forEach(n=>layers[layer[n]].push(n));
+  const layerIdxs=Object.keys(layers).map(Number).sort((a,b)=>a-b);
+  function indexIn(arr){const m={};arr.forEach((id,i)=>m[id]=i);return m;}
+  for(let pass=0;pass<50;pass++){
+    const dir=pass%2===0?1:-1;
+    const start=dir===1?1:layerIdxs.length-2;
+    const end=dir===1?layerIdxs.length:-1;
+    for(let li=start;li!==end;li+=dir){
+      const l=layerIdxs[li],lAdj=layerIdxs[li-dir];
+      const arr=layers[l],adjArr=layers[lAdj];if(!arr||!adjArr||!arr.length)continue;
+      const adjIdx=indexIn(adjArr);
+      const scored=arr.map((id,i)=>{const ns=[...adj[id]].filter(n=>layer[n]===lAdj);
+        if(!ns.length)return{id,b:i};
+        let s=0;ns.forEach(n=>s+=adjIdx[n]);return{id,b:s/ns.length};});
+      scored.sort((a,b)=>a.b-b.b);
+      layers[l]=scored.map(o=>o.id);
+    }
+  }
+  const X_SPACING=12,Y_SPACING=11;
+  const totalH=(layerIdxs.length-1)*Y_SPACING;
+  layerIdxs.forEach(l=>{
+    const arr=layers[l],n=arr.length;
+    const width=(n-1)*X_SPACING;
+    const y=totalH/2-l*Y_SPACING;
+    arr.forEach((id,i)=>{if(dummies.has(id))return;const nm=nodeMap[id];if(!nm)return;
+      nm.x=i*X_SPACING-width/2;nm.y=y;nm.z=0;});
+  });
+  applyPositions();
+}
+// Curved 2D: same layered placement, but detect arrows whose straight path grazes a
+// non-endpoint node and bend them (set per-arrow offset) to route around it.
+function resetBends(){
+  arrowObjs.forEach(a=>{if(a.isLoop)return;if(a.offset!==a.origOffset){a.offset=a.origOffset||0;updateArrow(a);}});
+}
+function bendEdgesToAvoid(){
+  arrowObjs.forEach(a=>{
+    if(a.isLoop)return;
+    const sm=nodeMeshes.find(m=>m.userData.id===a.srcId);
+    const tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);
+    if(!sm||!tm)return;
+    const [fA,fB]=a.srcId<a.tgtId?[sm,tm]:[tm,sm];
+    const dx=fB.position.x-fA.position.x,dy=fB.position.y-fA.position.y;
+    const len=Math.hypot(dx,dy);if(len<0.01)return;
+    const nx=-dy/len,ny=dx/len;
+    let maxPen=0,chosenSide=0;
+    nodeMeshes.forEach(m=>{
+      if(m===sm||m===tm)return;
+      const vx=m.position.x-fA.position.x,vy=m.position.y-fA.position.y;
+      const along=(vx*dx+vy*dy)/(len*len);
+      if(along<0.12||along>0.88)return;
+      const perp=vx*nx+vy*ny;const absPerp=Math.abs(perp);
+      const r=(m.userData.radius||1.5)+2.2;
+      if(absPerp<r){const pen=r-absPerp;if(pen>maxPen){maxPen=pen;chosenSide=perp>=0?-1:1;}}
+    });
+    const newOffset=chosenSide!==0?chosenSide*0.5:(a.origOffset||0);
+    if(newOffset!==a.offset){a.offset=newOffset;updateArrow(a);}
+  });
+}
+function layout2DCurved(){layout2D();bendEdgesToAvoid();}
+function setView2D(on){
+  const R=Math.max(30,Math.sqrt(O.cls.length+O.ind.length)*8);
+  if(on){
+    // Save current 3D pose, switch to front-orthographic-like view, disable rotation.
+    if(!camera.userData.saved3D)camera.userData.saved3D={pos:camera.position.clone(),tgt:ctrl.target.clone()};
+    camera.position.set(0,0,R*2.2);ctrl.target.set(0,0,0);
+    ctrl.enableRotate=false;
+  }else{
+    const saved=camera.userData.saved3D;
+    if(saved){camera.position.copy(saved.pos);ctrl.target.copy(saved.tgt);camera.userData.saved3D=null;}
+    ctrl.enableRotate=true;
+  }
+}
+
 // ---- Lightweight OWL reasoner (RDFS subClassOf transitivity, type propagation, equivalentClass intersectionOf+someValuesFrom) ----
 function runReasoner(){
   const inf={typ:[],sub:[]};
@@ -834,9 +959,11 @@ function clearReasoning(){
   _inferred.arrows=[];_inferred.lines=[];
 }
 
-document.getElementById('bf').addEventListener('click',()=>{forceLayout(400);document.getElementById('bh').classList.remove('active');document.getElementById('bf').classList.add('active');});
-document.getElementById('bh').addEventListener('click',()=>{hierLayout();applyPositions();document.getElementById('bh').classList.add('active');document.getElementById('bf').classList.remove('active');});
-document.getElementById('br').addEventListener('click',()=>{camera.position.set(0,20,55);ctrl.target.set(0,0,0);document.getElementById('bh').click();});
+function _setLayoutActive(id){['bh','bf','b2'].forEach(x=>{const el=document.getElementById(x);if(el)el.classList.toggle('active',x===id);});}
+document.getElementById('bf').addEventListener('click',()=>{setView2D(false);resetBends();forceLayout(400);_setLayoutActive('bf');});
+document.getElementById('bh').addEventListener('click',()=>{setView2D(false);resetBends();hierLayout();applyPositions();_setLayoutActive('bh');});
+const _b2=document.getElementById('b2');if(_b2)_b2.addEventListener('click',()=>{layout2DCurved();setView2D(true);_setLayoutActive('b2');});
+document.getElementById('br').addEventListener('click',()=>{setView2D(false);resetBends();camera.position.set(0,20,55);ctrl.target.set(0,0,0);document.getElementById('bh').click();});
 const _bre=document.getElementById('bre');
 if(_bre)_bre.addEventListener('click',()=>{
   if(_bre.classList.contains('active')){clearReasoning();_bre.classList.remove('active');}

@@ -17,10 +17,15 @@ container.innerHTML=`
   </div>
   <div id="hc-help">
     <div style="font-size:10px;color:#999;margin-bottom:4px">R 기본 컨트롤</div>
-    <div><span class="hc-dot" style="background:#ffb84d"></span>R V (엄지 접음) → <b>Orbit</b></div>
-    <div><span class="hc-dot" style="background:#5da8f0"></span>R V (엄지 펴짐) → <b>Pan</b></div>
+    <div><span class="hc-dot" style="background:#ffb84d"></span>R V (검지+중지) → <b>Orbit</b></div>
+    <div><span class="hc-dot" style="background:#5da8f0"></span>R 손바닥 펼치기 (3+ 손가락) → <b>Pan</b></div>
     <div><span class="hc-dot" style="background:#ffb84d"></span>R + L V → <b>Zoom</b> (양손 간격)</div>
-    <div class="hc-g" data-g="pinch"><span class="hc-dot" style="background:#d463e8"></span>R 핀치 <b>→ Pick / Drag</b></div>
+    <div class="hc-g" data-g="pinch"><span class="hc-dot" style="background:#d463e8"></span>R 검지 꺾기 (나머지 펴짐) <b>→ Pick / Drag</b></div>
+  </div>
+  <div id="hc-debug">
+    <div class="hc-dbg-row"><span class="hc-dbg-lbl">L</span><span class="hc-dbg-body" id="hc-dbg-L">—</span></div>
+    <div class="hc-dbg-row"><span class="hc-dbg-lbl">R</span><span class="hc-dbg-body" id="hc-dbg-R">—</span></div>
+    <div class="hc-dbg-hint" id="hc-dbg-hint"></div>
   </div>`;
 document.body.appendChild(container);
 
@@ -45,6 +50,14 @@ style.textContent=`
   #hc-overlay{display:block;width:${PREVIEW_W}px;height:${PREVIEW_H}px}
   #hc-mode{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;font-family:system-ui;letter-spacing:.3px}
   #hc-help{font-family:system-ui;font-size:10px;color:#555;background:rgba(255,255,255,.94);border:1px solid #e0e0e0;border-radius:6px;padding:8px 10px;width:${PREVIEW_W}px;text-align:left;line-height:1.7}
+  #hc-debug{font-family:'SF Mono',Menlo,monospace;font-size:10px;color:#444;background:rgba(255,255,255,.94);border:1px solid #e0e0e0;border-radius:6px;padding:6px 8px;width:${PREVIEW_W}px;text-align:left;line-height:1.45}
+  .hc-dbg-row{display:flex;gap:6px;align-items:baseline}
+  .hc-dbg-lbl{font-weight:700;color:#888;width:10px;flex-shrink:0}
+  .hc-dbg-body{flex:1;font-size:10px}
+  .hc-dbg-hint{margin-top:4px;font-size:9.5px;color:#3a7bd5;min-height:12px;font-family:system-ui}
+  .hc-f{display:inline-block;width:10px;text-align:center;margin-right:1px}
+  .hc-f.on{color:#3a7bd5;font-weight:700}
+  .hc-f.off{color:#ccc}
   .hc-g{display:flex;align-items:center;gap:6px;opacity:0.55;transition:opacity .15s}
   .hc-g.active{opacity:1;color:#3a7bd5;font-weight:600}
   .hc-dot{width:7px;height:7px;border-radius:50%;background:#ccc;flex-shrink:0;transition:background .15s}
@@ -96,16 +109,17 @@ function classify(lm){
   const cnt=+e.index+ +e.middle+ +e.ring+ +e.pinky;
   const idxBend=angleAt(lm[5],lm[6],lm[7]);
   const pr=pinchRatio(lm);
-  if(pr<0.3&&e.middle&&e.ring&&e.pinky) return 'pinch';
   if(cnt===0) return 'fist';
-  if(e.index&&e.middle&&!e.ring&&!e.pinky){
-    return e.thumb?'pan_v':'orbit_v';
-  }
-  if(cnt>=3&&!e.thumb) return 'open_palm';
+  // Pinch: index bent while at least two of middle/ring/pinky still extended.
+  // Thumb is unreliable, so we don't use the thumb-index distance (pr) anymore.
+  if(!e.index&&(+e.middle + +e.ring + +e.pinky)>=2) return 'pinch';
+  if(e.index&&e.middle&&!e.ring&&!e.pinky) return 'orbit_v';
+  if(cnt>=3) return 'pan_v';
   if(e.index&&!e.middle&&!e.ring&&!e.pinky) return 'point';
   return 'idle';
 }
-function centroid(lm){let x=0,y=0;lm.forEach(p=>{x+=p.x;y+=p.y;});return{x:x/lm.length,y:y/lm.length};}
+// Wrist (lm[0]) anchors motion — unaffected by finger curl or palm rotation.
+function centroid(lm){return{x:lm[0].x,y:lm[0].y};}
 
 // ---- State ----
 const state={
@@ -154,8 +168,8 @@ function route(now){
   state.mode='Idle';
 
   // Pinch on right hand → Pick/Drag
-  if(gR==='pinch'&&state.handsRaw.R){
-    const p=state.handsRaw.R[8],ndcX=p.x*2-1,ndcY=-(p.y*2-1);
+  if(gR==='pinch'&&state.handsRaw.R&&state.tipNDC){
+    const ndcX=state.tipNDC.x,ndcY=state.tipNDC.y;
     if(state.prev.gestureR!=='pinch'){
       const picked=OA.pickAndDragAtNDC(ndcX,ndcY);
       state.dragging=picked!==null;
@@ -167,8 +181,12 @@ function route(now){
   }
   if(state.dragging){OA.endNodeDrag();state.dragging=false;}
 
+  // Motion applies only when the same active gesture persisted to this frame —
+  // otherwise a V→fist transition burst would leak frame-to-frame deltas as orbit/pan.
+  const sameAsPrev=(state.prev.gestureR===gR);
+
   // Right hand V with thumb → Pan
-  if(gR==='pan_v'&&state.centerR&&state.prevR){
+  if(gR==='pan_v'&&state.centerR&&state.prevR&&sameAsPrev){
     const dx=state.centerR.x-state.prevR.x;
     const dy=state.centerR.y-state.prevR.y;
     pan(dx,dy);state.mode='Pan';
@@ -176,7 +194,7 @@ function route(now){
   }
 
   // Right hand V (no thumb) → Orbit or Zoom (if left also V)
-  if(gR==='orbit_v'&&state.centerR&&state.prevR){
+  if(gR==='orbit_v'&&state.centerR&&state.prevR&&sameAsPrev){
     const leftZoom=(gL==='orbit_v'||gL==='pan_v');
     const dx=state.centerR.x-state.prevR.x;
     const dy=state.centerR.y-state.prevR.y;
@@ -191,8 +209,11 @@ function route(now){
     }else{
       orbit(dx,dy);state.mode='Orbit';
     }
+  }else if(gR==='pan_v'||gR==='orbit_v'){
+    // First frame after entering an active gesture — stabilize, no motion yet.
+    state.mode=gR==='pan_v'?'Pan ready':'Orbit ready';
   }else{
-    state.mode='Idle';
+    state.mode=gR==='fist'?'Fist':'Idle';
   }
 
   state.prev.gestureR=gR;
@@ -229,14 +250,17 @@ function drawPreview(){
 }
 function updateCursor(){
   const lm=state.handsRaw.R||state.handsRaw.L;
-  if(!lm){cursor.style.display='none';if(OA.setHandHover)OA.setHandHover(null);}
+  const side=state.handsRaw.R?'R':(state.handsRaw.L?'L':null);
+  if(!lm||!side){cursor.style.display='none';if(OA.setHandHover)OA.setHandHover(null);}
   else{
-    const p=lm[8];
+    const pts=computeDrawnPts(lm,side);
+    const tipPx=pts[8];
+    // Stash the drawn-tip NDC for route() pinch/pick so aim == what's visually shown.
+    state.tipNDC={x:tipPx.x/innerWidth*2-1,y:-(tipPx.y/innerHeight*2-1)};
     cursor.style.display='block';
-    cursor.style.transform=`translate(${p.x*innerWidth-12}px, ${p.y*innerHeight-12}px)`;
+    cursor.style.transform=`translate(${tipPx.x-12}px, ${tipPx.y-12}px)`;
     if(OA.hoverAtNDC&&OA.setHandHover&&!state.dragging){
-      const ndcX=p.x*2-1,ndcY=-(p.y*2-1);
-      const hit=OA.hoverAtNDC(ndcX,ndcY);
+      const hit=OA.hoverAtNDC(state.tipNDC.x,state.tipNDC.y);
       OA.setHandHover(hit?hit.userData.id:null);
     }
   }
@@ -255,8 +279,11 @@ function colorsForGesture(g){
   if(g==='pinch')return{tip:'#d463e8',line:'rgba(220,140,240,0.9)',palm:'rgba(212,99,232,0.18)',active:true};
   return{tip:'#a8a8a8',line:'rgba(170,170,170,0.85)',palm:'rgba(140,140,140,0.16)',active:false};
 }
-function drawOneHand(lm,side,gesture){
-  const ax=lm[8].x,ay=lm[8].y;
+// Compute the exact on-screen pixel positions of every landmark *as they'll be drawn*
+// (wrist-anchored scale + depth compression). Cursor/picking must use these so that
+// what the user sees (the overlay fingertip) matches what they aim at.
+function computeDrawnPts(lm,side){
+  const ax=lm[0].x,ay=lm[0].y;
   const span=Math.hypot(lm[9].x-lm[0].x,lm[9].y-lm[0].y)||0.15;
   const target=PALM_PX/span;
   smoothScale[side]=smoothScale[side]==null?target:smoothScale[side]*0.82+target*0.18;
@@ -265,6 +292,10 @@ function drawOneHand(lm,side,gesture){
   const depths=[0,1,2,3,4, 1,2,3,4, 1,2,3,4, 1,2,3,4, 1,2,3,4];
   let fcx=0,fcy=0;[0,5,9,13,17].forEach(i=>{fcx+=pts[i].x;fcy+=pts[i].y;});fcx/=5;fcy/=5;
   pts.forEach((p,i)=>{const d=depths[i]||0;if(d>=2){const f=1-(d-1)*0.12;p.x=fcx+(p.x-fcx)*f;p.y=fcy+(p.y-fcy)*f;}});
+  return pts;
+}
+function drawOneHand(lm,side,gesture){
+  const pts=computeDrawnPts(lm,side);
   const c=colorsForGesture(gesture);
   const palmIdx=[0,1,2,5,9,13,17];
   const palmPts=palmIdx.map(i=>({x:pts[i].x,y:pts[i].y}));
@@ -311,6 +342,35 @@ function smoothLM(side,lm){
   }));
   return smoothed[side];
 }
+const dbgEl={L:null,R:null,hint:null};
+function _dbg(id){return dbgEl[id]||(dbgEl[id]=document.getElementById('hc-dbg-'+id));}
+function fmtDebug(side,lm,gesture){
+  const el=_dbg(side);if(!el)return;
+  if(!lm){el.innerHTML='<span style="color:#bbb">—</span>';return;}
+  const e=fingersExt(lm);
+  const cnt=+e.index+ +e.middle+ +e.ring+ +e.pinky;
+  const pr=pinchRatio(lm);
+  const f=(name,on)=>`<span class="hc-f ${on?'on':'off'}">${name}</span>`;
+  const g=`<b style="color:#222">${gesture}</b>`;
+  el.innerHTML=`${f('T',e.thumb)}${f('I',e.index)}${f('M',e.middle)}${f('R',e.ring)}${f('P',e.pinky)} · pr=${pr.toFixed(2)} · cnt=${cnt} · ${g}`;
+}
+function debugHint(){
+  const el=_dbg('hint');if(!el){dbgEl.hint=document.getElementById('hc-dbg-hint');if(!dbgEl.hint)return;}
+  const lm=state.handsRaw.R;
+  const target=dbgEl.hint;
+  if(!lm){target.textContent='';return;}
+  const g=state.gestureR;
+  if(g==='orbit_v'||g==='pan_v'||g==='pinch'){target.textContent='';return;}
+  const e=fingersExt(lm);
+  const cnt=+e.index+ +e.middle+ +e.ring+ +e.pinky;
+  const pr=pinchRatio(lm);
+  const msgs=[];
+  if(e.index&&e.middle&&(e.ring||e.pinky))msgs.push('Orbit하려면 약지·새끼 접기');
+  else if(!e.index||!e.middle)msgs.push('Orbit: 검지+중지 펴기');
+  if(cnt<3)msgs.push('Pan: 손바닥 펼치기 (3+ 손가락)');
+  if(!e.index&&(+e.middle + +e.ring + +e.pinky)<2)msgs.push('Pinch: 중지·약지·새끼 펴고 검지만 꺾기');
+  target.textContent=msgs[0]||'';
+}
 function onResults(r){
   state.handsRaw={L:null,R:null};
   const raw={L:null,R:null};
@@ -334,6 +394,9 @@ function onResults(r){
   route(performance.now());
   state.frames++;
   modeEl.textContent=state.mode+' · L:'+state.gestureL+' R:'+state.gestureR+' · f'+state.frames;
+  fmtDebug('L',state.handsRaw.L,state.gestureL);
+  fmtDebug('R',state.handsRaw.R,state.gestureR);
+  debugHint();
 }
 
 async function enable(){

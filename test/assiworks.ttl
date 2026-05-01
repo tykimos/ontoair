@@ -2,7 +2,6 @@
 @prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
-@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
 
 <https://example.org/assiworks>
     a owl:Ontology ;
@@ -14,419 +13,104 @@
 # Classes
 #################################################################
 
-aw:AssiWorksPlatform a owl:Class ;
-    rdfs:label "AssiWorks Platform"@en ;
-    rdfs:label "어시웍스 플랫폼"@ko .
-
 aw:Agent a owl:Class ;
     rdfs:label "Agent"@en ;
     rdfs:label "에이전트"@ko ;
     rdfs:comment "업무를 수행하는 지능형 실행 주체"@ko .
 
-aw:OperatorAgent a owl:Class ;
+aw:Operator a owl:Class ;
     rdfs:subClassOf aw:Agent ;
-    rdfs:label "Operator Agent"@en ;
-    rdfs:label "오퍼레이터 에이전트"@ko ;
+    rdfs:label "Operator"@en ;
+    rdfs:label "오퍼레이터"@ko ;
     rdfs:comment "정해진 절차를 지속적으로 처리하는 절차형 에이전트"@ko .
 
-aw:LoopAgent a owl:Class ;
+aw:Air a owl:Class ;
     rdfs:subClassOf aw:Agent ;
-    rdfs:label "Loop Agent"@en ;
-    rdfs:label "루프 에이전트"@ko ;
-    rdfs:comment "지속적으로 상태를 점검하고 자율 루프를 수행하는 에이전트"@ko .
-
-aw:AirAgent a owl:Class ;
-    rdfs:subClassOf aw:Agent ;
-    rdfs:label "Air Agent"@en ;
-    rdfs:label "에어 에이전트"@ko ;
+    rdfs:label "Air"@en ;
+    rdfs:label "에어"@ko ;
     rdfs:comment "웹 환경과 상호작용하는 웹 에이전트"@ko .
 
-aw:PlannerAgent a owl:Class ;
-    rdfs:subClassOf aw:Agent ;
-    rdfs:label "Planner Agent"@en ;
-    rdfs:label "플래너 에이전트"@ko ;
-    rdfs:comment "도구 선택, 흐름 구성, 작업 분해를 담당하는 계획형 에이전트"@ko .
-
-aw:Flow a owl:Class ;
-    rdfs:label "Flow"@en ;
-    rdfs:label "플로우"@ko ;
-    rdfs:comment "작업 단계를 연결한 실행 흐름"@ko .
-
 aw:Loop a owl:Class ;
+    rdfs:subClassOf aw:Agent ;
     rdfs:label "Loop"@en ;
     rdfs:label "루프"@ko ;
-    rdfs:comment "반복적 상태 점검과 실행을 수행하는 자율 순환 구조"@ko .
+    rdfs:comment "지속적으로 상태를 점검하고 자율 루프를 수행하는 에이전트"@ko .
 
 aw:Tool a owl:Class ;
     rdfs:label "Tool"@en ;
     rdfs:label "도구"@ko ;
     rdfs:comment "에이전트가 호출하는 외부 기능 또는 시스템 인터페이스"@ko .
 
-aw:Skill a owl:Class ;
-    rdfs:label "Skill"@en ;
-    rdfs:label "스킬"@ko ;
-    rdfs:comment "특정 작업을 수행하기 위한 재사용 가능한 실행 지식 단위"@ko .
+aw:APITool a owl:Class ;
+    rdfs:subClassOf aw:Tool ;
+    rdfs:label "API Tool"@en ;
+    rdfs:label "API 도구"@ko ;
+    rdfs:comment "외부 API를 호출하는 도구"@ko .
 
-aw:Context a owl:Class ;
-    rdfs:label "Context"@en ;
-    rdfs:label "컨텍스트"@ko ;
-    rdfs:comment "에이전트 판단과 실행에 필요한 상황 정보"@ko .
+aw:LLMTool a owl:Class ;
+    rdfs:subClassOf aw:Tool ;
+    rdfs:label "LLM Tool"@en ;
+    rdfs:label "LLM 도구"@ko ;
+    rdfs:comment "대형 언어 모델을 호출하는 도구"@ko .
 
-aw:Memory a owl:Class ;
-    rdfs:label "Memory"@en ;
-    rdfs:label "메모리"@ko ;
-    rdfs:comment "에이전트 또는 시스템이 유지하는 기억 자원"@ko .
+aw:DBTool a owl:Class ;
+    rdfs:subClassOf aw:Tool ;
+    rdfs:label "DB Tool"@en ;
+    rdfs:label "DB 도구"@ko ;
+    rdfs:comment "데이터베이스에 접근하는 도구"@ko .
 
-aw:ShortTermMemory a owl:Class ;
-    rdfs:subClassOf aw:Memory ;
-    rdfs:label "Short-term Memory"@en ;
-    rdfs:label "단기 메모리"@ko .
+aw:Flow a owl:Class ;
+    rdfs:label "Flow"@en ;
+    rdfs:label "플로우"@ko ;
+    rdfs:comment "작업 단계를 연결한 실행 흐름"@ko .
 
-aw:LongTermMemory a owl:Class ;
-    rdfs:subClassOf aw:Memory ;
-    rdfs:label "Long-term Memory"@en ;
-    rdfs:label "장기 메모리"@ko .
-
-aw:Harness a owl:Class ;
-    rdfs:label "Harness"@en ;
-    rdfs:label "하네스"@ko ;
-    rdfs:comment "에이전트의 실행 방식, 권한, 연결, 제약을 조직하는 통제 구조"@ko .
-
-aw:Monitor a owl:Class ;
-    rdfs:label "Monitor"@en ;
-    rdfs:label "모니터"@ko ;
-    rdfs:comment "에이전트 및 플로우의 상태를 관찰하고 기록하는 구성요소"@ko .
-
-aw:Policy a owl:Class ;
-    rdfs:label "Policy"@en ;
-    rdfs:label "정책"@ko ;
-    rdfs:comment "행위 제한, 승인 규칙, 안전 제약 등을 정의하는 규칙"@ko .
-
-aw:Role a owl:Class ;
-    rdfs:label "Role"@en ;
-    rdfs:label "역할"@ko ;
-    rdfs:comment "에이전트나 구성요소에 부여된 기능적 역할"@ko .
-
-aw:Task a owl:Class ;
-    rdfs:label "Task"@en ;
-    rdfs:label "과업"@ko ;
-    rdfs:comment "에이전트가 수행하는 개별 작업"@ko .
-
-aw:Workspace a owl:Class ;
-    rdfs:label "Workspace"@en ;
-    rdfs:label "워크스페이스"@ko ;
-    rdfs:comment "어시웍스가 운영되는 작업 공간 또는 환경"@ko .
-
-aw:Observation a owl:Class ;
-    rdfs:label "Observation"@en ;
-    rdfs:label "관측값"@ko ;
-    rdfs:comment "모니터링 과정에서 생성된 상태·로그·평가 정보"@ko .
+aw:Factory a owl:Class ;
+    rdfs:label "Factory"@en ;
+    rdfs:label "팩토리"@ko ;
+    rdfs:comment "에이전트·도구·플로우의 구성과 실행을 감시·감독하는 상위 통제 클래스"@ko .
 
 #################################################################
 # Object Properties
 #################################################################
 
-aw:hasAgent a owl:ObjectProperty ;
-    rdfs:domain aw:AssiWorksPlatform ;
-    rdfs:range aw:Agent ;
-    rdfs:label "has agent"@en ;
-    rdfs:label "에이전트를 가진다"@ko .
-
-aw:hasFlow a owl:ObjectProperty ;
-    rdfs:domain aw:AssiWorksPlatform ;
-    rdfs:range aw:Flow ;
-    rdfs:label "has flow"@en ;
-    rdfs:label "플로우를 가진다"@ko .
-
-aw:hasHarness a owl:ObjectProperty ;
-    rdfs:domain aw:AssiWorksPlatform ;
-    rdfs:range aw:Harness ;
-    rdfs:label "has harness"@en ;
-    rdfs:label "하네스를 가진다"@ko .
-
-aw:hasMonitor a owl:ObjectProperty ;
-    rdfs:domain aw:AssiWorksPlatform ;
-    rdfs:range aw:Monitor ;
-    rdfs:label "has monitor"@en ;
-    rdfs:label "모니터를 가진다"@ko .
-
-aw:usesTool a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
+aw:useTool a owl:ObjectProperty ;
+    rdfs:domain aw:Agent , aw:Flow ;
     rdfs:range aw:Tool ;
-    rdfs:label "uses tool"@en ;
+    rdfs:label "use tool"@en ;
     rdfs:label "도구를 사용한다"@ko .
 
-aw:usesSkill a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Skill ;
-    rdfs:label "uses skill"@en ;
-    rdfs:label "스킬을 사용한다"@ko .
-
-aw:usesContext a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Context ;
-    rdfs:label "uses context"@en ;
-    rdfs:label "컨텍스트를 사용한다"@ko .
-
-aw:usesMemory a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Memory ;
-    rdfs:label "uses memory"@en ;
-    rdfs:label "메모리를 사용한다"@ko .
-
-aw:participatesInFlow a owl:ObjectProperty ;
+aw:useFlow a owl:ObjectProperty ;
     rdfs:domain aw:Agent ;
     rdfs:range aw:Flow ;
-    rdfs:label "participates in flow"@en ;
-    rdfs:label "플로우에 참여한다"@ko .
+    rdfs:label "use flow"@en ;
+    rdfs:label "플로우를 사용한다"@ko .
 
-aw:executesTask a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Task ;
-    rdfs:label "executes task"@en ;
-    rdfs:label "과업을 수행한다"@ko .
+aw:useOperator a owl:ObjectProperty ;
+    rdfs:domain aw:Flow , aw:Operator ;
+    rdfs:range aw:Operator ;
+    rdfs:label "use operator"@en ;
+    rdfs:label "오퍼레이터를 사용한다"@ko .
 
-aw:governedBy a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Harness ;
-    rdfs:label "governed by"@en ;
-    rdfs:label "하네스의 통제를 받는다"@ko .
+aw:useLoop a owl:ObjectProperty ;
+    rdfs:domain aw:Operator ;
+    rdfs:range aw:Loop ;
+    rdfs:label "use loop"@en ;
+    rdfs:label "루프를 사용한다"@ko .
 
-aw:constrainedByPolicy a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Policy ;
-    rdfs:label "constrained by policy"@en ;
-    rdfs:label "정책 제약을 받는다"@ko .
-
-aw:monitors a owl:ObjectProperty ;
-    rdfs:domain aw:Monitor ;
+aw:supervisesAgent a owl:ObjectProperty ;
+    rdfs:domain aw:Factory ;
     rdfs:range aw:Agent ;
-    rdfs:label "monitors"@en ;
-    rdfs:label "모니터링한다"@ko .
+    rdfs:label "supervises agent"@en ;
+    rdfs:label "에이전트를 감독한다"@ko .
 
-aw:producesObservation a owl:ObjectProperty ;
-    rdfs:domain aw:Monitor ;
-    rdfs:range aw:Observation ;
-    rdfs:label "produces observation"@en ;
-    rdfs:label "관측값을 생성한다"@ko .
+aw:supervisesTool a owl:ObjectProperty ;
+    rdfs:domain aw:Factory ;
+    rdfs:range aw:Tool ;
+    rdfs:label "supervises tool"@en ;
+    rdfs:label "도구를 감독한다"@ko .
 
-aw:hasRole a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Role ;
-    rdfs:label "has role"@en ;
-    rdfs:label "역할을 가진다"@ko .
-
-aw:containsStep a owl:ObjectProperty ;
-    rdfs:domain aw:Flow ;
-    rdfs:range aw:Task ;
-    rdfs:label "contains step"@en ;
-    rdfs:label "단계를 포함한다"@ko .
-
-aw:triggersFlow a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
+aw:supervisesFlow a owl:ObjectProperty ;
+    rdfs:domain aw:Factory ;
     rdfs:range aw:Flow ;
-    rdfs:label "triggers flow"@en ;
-    rdfs:label "플로우를 트리거한다"@ko .
-
-aw:interactsWith a owl:ObjectProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range aw:Agent ;
-    rdfs:label "interacts with"@en ;
-    rdfs:label "상호작용한다"@ko .
-
-aw:locatedInWorkspace a owl:ObjectProperty ;
-    rdfs:domain aw:AssiWorksPlatform ;
-    rdfs:range aw:Workspace ;
-    rdfs:label "located in workspace"@en ;
-    rdfs:label "워크스페이스에 위치한다"@ko .
-
-#################################################################
-# Datatype Properties
-#################################################################
-
-aw:hasName a owl:DatatypeProperty ;
-    rdfs:domain owl:Thing ;
-    rdfs:range xsd:string ;
-    rdfs:label "has name"@en ;
-    rdfs:label "이름을 가진다"@ko .
-
-aw:hasDescription a owl:DatatypeProperty ;
-    rdfs:domain owl:Thing ;
-    rdfs:range xsd:string ;
-    rdfs:label "has description"@en ;
-    rdfs:label "설명을 가진다"@ko .
-
-aw:hasStatus a owl:DatatypeProperty ;
-    rdfs:domain owl:Thing ;
-    rdfs:range xsd:string ;
-    rdfs:label "has status"@en ;
-    rdfs:label "상태를 가진다"@ko .
-
-aw:hasPriority a owl:DatatypeProperty ;
-    rdfs:domain aw:Task ;
-    rdfs:range xsd:integer ;
-    rdfs:label "has priority"@en ;
-    rdfs:label "우선순위를 가진다"@ko .
-
-aw:isAutonomous a owl:DatatypeProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range xsd:boolean ;
-    rdfs:label "is autonomous"@en ;
-    rdfs:label "자율 여부"@ko .
-
-aw:hasExecutionMode a owl:DatatypeProperty ;
-    rdfs:domain aw:Agent ;
-    rdfs:range xsd:string ;
-    rdfs:label "has execution mode"@en ;
-    rdfs:label "실행 모드"@ko .
-
-aw:hasTimestamp a owl:DatatypeProperty ;
-    rdfs:domain aw:Observation ;
-    rdfs:range xsd:dateTime ;
-    rdfs:label "has timestamp"@en ;
-    rdfs:label "시각을 가진다"@ko .
-
-aw:hasConfidence a owl:DatatypeProperty ;
-    rdfs:domain aw:Observation ;
-    rdfs:range xsd:decimal ;
-    rdfs:label "has confidence"@en ;
-    rdfs:label "신뢰도를 가진다"@ko .
-
-#################################################################
-# Disjoint Classes
-#################################################################
-
-aw:Tool owl:disjointWith aw:Skill .
-aw:Flow owl:disjointWith aw:Task .
-aw:Context owl:disjointWith aw:Memory .
-
-#################################################################
-# Example Individuals
-#################################################################
-
-aw:AssiWorks a aw:AssiWorksPlatform ;
-    aw:hasName "AssiWorks" ;
-    aw:hasDescription "다양한 에이전트와 플로우를 통합 운영하는 플랫폼"@ko ;
-    aw:hasAgent aw:Operator01, aw:Loop01, aw:Air01, aw:Planner01 ;
-    aw:hasFlow aw:CustomerSupportFlow ;
-    aw:hasHarness aw:MainHarness ;
-    aw:hasMonitor aw:MainMonitor ;
-    aw:locatedInWorkspace aw:DefaultWorkspace .
-
-aw:Operator01 a aw:OperatorAgent ;
-    aw:hasName "Operator01" ;
-    aw:isAutonomous false ;
-    aw:hasExecutionMode "procedural" ;
-    aw:usesTool aw:CRMTool ;
-    aw:usesSkill aw:ResponseSkill ;
-    aw:usesContext aw:CustomerContext ;
-    aw:usesMemory aw:SessionMemory ;
-    aw:participatesInFlow aw:CustomerSupportFlow ;
-    aw:governedBy aw:MainHarness ;
-    aw:constrainedByPolicy aw:SafetyPolicy ;
-    aw:hasRole aw:SupportRole .
-
-aw:Loop01 a aw:LoopAgent ;
-    aw:hasName "Loop01" ;
-    aw:isAutonomous true ;
-    aw:hasExecutionMode "continuous-loop" ;
-    aw:usesTool aw:SchedulerTool ;
-    aw:usesMemory aw:KnowledgeMemory ;
-    aw:governedBy aw:MainHarness ;
-    aw:hasRole aw:AutomationRole .
-
-aw:Air01 a aw:AirAgent ;
-    aw:hasName "Air01" ;
-    aw:isAutonomous true ;
-    aw:hasExecutionMode "web-agent" ;
-    aw:usesTool aw:BrowserTool ;
-    aw:usesContext aw:WebContext ;
-    aw:governedBy aw:MainHarness ;
-    aw:hasRole aw:WebInteractionRole .
-
-aw:Planner01 a aw:PlannerAgent ;
-    aw:hasName "Planner01" ;
-    aw:isAutonomous true ;
-    aw:hasExecutionMode "planning" ;
-    aw:usesSkill aw:PlanningSkill ;
-    aw:triggersFlow aw:CustomerSupportFlow ;
-    aw:interactsWith aw:Operator01, aw:Air01 ;
-    aw:governedBy aw:MainHarness ;
-    aw:hasRole aw:PlanningRole .
-
-aw:CustomerSupportFlow a aw:Flow ;
-    aw:hasName "Customer Support Flow" ;
-    aw:containsStep aw:TaskClassify, aw:TaskRetrieve, aw:TaskRespond .
-
-aw:TaskClassify a aw:Task ;
-    aw:hasName "Classify Inquiry" ;
-    aw:hasPriority 1 .
-
-aw:TaskRetrieve a aw:Task ;
-    aw:hasName "Retrieve Knowledge" ;
-    aw:hasPriority 2 .
-
-aw:TaskRespond a aw:Task ;
-    aw:hasName "Generate Response" ;
-    aw:hasPriority 3 .
-
-aw:MainHarness a aw:Harness ;
-    aw:hasName "Main Harness" ;
-    aw:hasDescription "에이전트 연결, 권한, 정책, 실행 흐름을 통제하는 기본 하네스"@ko .
-
-aw:MainMonitor a aw:Monitor ;
-    aw:hasName "Main Monitor" ;
-    aw:monitors aw:Operator01, aw:Loop01, aw:Air01, aw:Planner01 ;
-    aw:producesObservation aw:Obs001 .
-
-aw:Obs001 a aw:Observation ;
-    aw:hasName "Execution Health Observation" ;
-    aw:hasStatus "normal" ;
-    aw:hasConfidence "0.98"^^xsd:decimal ;
-    aw:hasTimestamp "2026-04-22T12:00:00"^^xsd:dateTime .
-
-aw:SafetyPolicy a aw:Policy ;
-    aw:hasName "Safety Policy" ;
-    aw:hasDescription "위험한 실행과 무단 외부 행위를 제한하는 정책"@ko .
-
-aw:CRMTool a aw:Tool ;
-    aw:hasName "CRM Tool" .
-
-aw:BrowserTool a aw:Tool ;
-    aw:hasName "Browser Tool" .
-
-aw:SchedulerTool a aw:Tool ;
-    aw:hasName "Scheduler Tool" .
-
-aw:ResponseSkill a aw:Skill ;
-    aw:hasName "Response Skill" .
-
-aw:PlanningSkill a aw:Skill ;
-    aw:hasName "Planning Skill" .
-
-aw:CustomerContext a aw:Context ;
-    aw:hasName "Customer Context" .
-
-aw:WebContext a aw:Context ;
-    aw:hasName "Web Context" .
-
-aw:SessionMemory a aw:ShortTermMemory ;
-    aw:hasName "Session Memory" .
-
-aw:KnowledgeMemory a aw:LongTermMemory ;
-    aw:hasName "Knowledge Memory" .
-
-aw:SupportRole a aw:Role ;
-    aw:hasName "Support" .
-
-aw:AutomationRole a aw:Role ;
-    aw:hasName "Automation" .
-
-aw:WebInteractionRole a aw:Role ;
-    aw:hasName "Web Interaction" .
-
-aw:PlanningRole a aw:Role ;
-    aw:hasName "Planning" .
-
-aw:DefaultWorkspace a aw:Workspace ;
-    aw:hasName "Default Workspace" .
+    rdfs:label "supervises flow"@en ;
+    rdfs:label "플로우를 감독한다"@ko .

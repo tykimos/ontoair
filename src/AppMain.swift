@@ -44,7 +44,7 @@ class DropWebView: WKWebView, WKUIDelegate {
     private func isOnto(_ url: URL) -> Bool { ["owl","rdf","ttl","trig"].contains(url.pathExtension.lowercased()) }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var window: NSWindow!
     var webView: WKWebView!
     var pendingURL: URL?
@@ -64,6 +64,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         config.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
         // Enable MediaDevices (getUserMedia) for in-app camera-based hand control.
         config.preferences.setValue(true, forKey: "mediaDevicesEnabled")
+        // JS bridge for in-page actions (e.g., TBox merge → reload with combined text).
+        let userContent = WKUserContentController()
+        userContent.add(self, name: "ontoair")
+        config.userContentController = userContent
         let dw = DropWebView(frame: window.contentView!.bounds, configuration: config)
         dw.autoresizingMask = [.width, .height]
         dw.onDrop = { [weak self] url in self?.loadOntology(url: url) }
@@ -102,15 +106,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         case "trig": format = "ttl"
         default: format = "ttl"
         }
-        let escaped = content
+        loadOntologyContent(text: content, format: format, fileName: url.lastPathComponent)
+    }
+
+    func loadOntologyContent(text: String, format: String, fileName: String) {
+        let escaped = text
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "`", with: "\\`")
             .replacingOccurrences(of: "$", with: "\\$")
-
-        let html = OntoAirHTML.build(bundle: Bundle.main, escaped: escaped, format: format, fileName: url.lastPathComponent)
+        let html = OntoAirHTML.build(bundle: Bundle.main, escaped: escaped, format: format, fileName: fileName)
         // Use bundle resource URL as base so MediaPipe assets (mediapipe/*) load via relative paths
         webView.loadHTMLString(html, baseURL: Bundle.main.resourceURL)
-        window.title = "OntoAir - \(url.lastPathComponent)"
+        window.title = "OntoAir - \(fileName)"
+    }
+
+    // MARK: - WKScriptMessageHandler
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == "ontoair",
+              let body = message.body as? [String: Any],
+              let action = body["action"] as? String else { return }
+        switch action {
+        case "loadText":
+            let text = body["text"] as? String ?? ""
+            let fmt = (body["fmt"] as? String).flatMap { ["owl","rdf","ttl"].contains($0) ? $0 : nil } ?? "ttl"
+            let name = body["name"] as? String ?? "untitled"
+            loadOntologyContent(text: text, format: fmt, fileName: name)
+        default:
+            break
+        }
     }
 
     private func welcomeHTML() -> String {

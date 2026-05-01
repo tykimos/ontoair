@@ -39,6 +39,12 @@ body.src-collapsed #src-resize{display:none}
 #controls button.active{background:#333;color:#fff;border-color:#333}
 #search{position:fixed;top:16px;right:16px;z-index:10;background:rgba(255,255,255,0.94);border:1px solid #e0e0e0;border-radius:8px;padding:8px 14px;font-size:12px;width:200px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 #search:focus{border-color:#999;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+#kbd-hint{position:fixed;top:16px;left:calc(var(--src-w) + 16px);z-index:15;background:rgba(255,255,255,0.92);border:1px solid #e0e0e0;border-radius:6px;padding:5px 10px;font-family:'SF Pro',system-ui,-apple-system,sans-serif;font-size:10px;color:#777;line-height:1.5;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:left 0.22s;pointer-events:none}
+#kbd-hint kbd{display:inline-block;padding:1px 5px;background:#f4f4f6;border:1px solid #d6d6d6;border-radius:3px;font-family:'SF Mono',Menlo,monospace;font-size:9px;color:#333;margin:0 2px}
+body.src-collapsed #kbd-hint{left:38px}
+#tbox-banner{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:25;background:#fff8e0;border:1px solid #e0b850;border-radius:8px;padding:10px 16px;font-size:12px;color:#7a5a00;box-shadow:0 4px 14px rgba(0,0,0,0.08);align-items:center;gap:10px}
+#tbox-banner input[type=file]{font-size:11px;padding:3px 5px;border:1px solid #d4b842;border-radius:5px;background:#fff;color:#333;cursor:pointer}
+#tbox-banner button{background:transparent;border:none;color:#866b00;cursor:pointer;font-size:14px;padding:0 4px}
 </style>
 </head>
 <body>
@@ -65,11 +71,19 @@ body.src-collapsed #src-resize{display:none}
 </aside>
 <div id='src-resize' title='Resize source'></div>
 <button id='src-toggle' title='Toggle source'>‹</button>
+<div id='kbd-hint'><kbd>D</kbd> DP팝업 토글 · <kbd>⌘</kbd>+클릭 노드 격리 · <kbd>Esc</kbd> 격리 해제 · <kbd>⌘</kbd>+<kbd>±</kbd> 라벨 크기</div>
+<div id='tbox-banner' style='display:none'>
+  <span>⚠️ TBox 정의 없이 ABox만 로드된 것 같습니다. 스키마(클래스/속성 라벨)를 보강하려면 TBox 파일도 함께 선택하세요.</span>
+  <input type='file' id='tboxSel' accept='.owl,.rdf,.ttl,.trig'>
+  <button id='tboxClose' title='닫기'>×</button>
+</div>
 <div id='tooltip'><div class='tn' id='ttn'></div><div class='tl' id='ttl'></div><div class='tt' id='ttt'></div><div class='tu' id='ttu'></div><div class='tc' id='ttc'></div><div class='tp' id='ttp'></div></div>
 <input type='text' id='search' placeholder='Search nodes...'>
 <div id='controls'>
   <button id='bh' class='active'>Hierarchy</button>
   <button id='bf'>Force</button>
+  <button id='b2' title='2D layered layout with curved edges routed around obstructing nodes'>2D</button>
+  <button id='bre' title='Run lightweight OWL reasoner: subClassOf transitivity, type propagation, equivalentClass intersectionOf+someValuesFrom'>Reason</button>
   <button id='br'>Reset</button>
 </div>
 <script>{{THREE_JS}}</script>
@@ -80,6 +94,28 @@ const FMT='{{FMT}}';
 const FNAME='{{FNAME}}';
 </script>
 <script>{{ONTOAIR_JS}}</script>
+<script>
+(function(){
+  const banner=document.getElementById('tbox-banner');
+  const tboxSel=document.getElementById('tboxSel');
+  const tboxClose=document.getElementById('tboxClose');
+  if(!banner)return;
+  if(window.O&&window.O.missingTBox)banner.style.display='flex';
+  if(tboxClose)tboxClose.addEventListener('click',()=>{banner.style.display='none';});
+  function bridgeAvailable(){return !!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.ontoair);}
+  if(!bridgeAvailable()&&tboxSel){tboxSel.disabled=true;tboxSel.title='TBox 병합은 메인 앱에서만 지원됩니다';}
+  if(tboxSel)tboxSel.addEventListener('change',async e=>{
+    const fs=e.target.files;if(!fs||!fs.length)return;
+    const parts=await Promise.all([...fs].map(f=>new Promise(res=>{const r=new FileReader();r.onload=()=>res({text:r.result,name:f.name});r.readAsText(f);})));
+    const tboxText=parts.map(p=>p.text).join('\n');
+    const merged=tboxText+'\n\n'+RAW;
+    const newName=parts.map(p=>p.name).join(' + ')+' + '+FNAME;
+    if(bridgeAvailable()){
+      window.webkit.messageHandlers.ontoair.postMessage({action:'loadText',text:merged,fmt:FMT,name:newName});
+    }
+  });
+})();
+</script>
 {{HAND_CONTROL_BLOCK}}
 </body>
 </html>

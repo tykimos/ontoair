@@ -40,9 +40,13 @@ body.src-collapsed #src-resize{display:none}
 #controls button.active{background:#333;color:#fff;border-color:#333}
 #search{position:fixed;top:16px;right:200px;z-index:10;background:rgba(255,255,255,0.94);border:1px solid #e0e0e0;border-radius:8px;padding:8px 14px;font-size:12px;width:200px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 #search:focus{border-color:#999;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
-#devbar{position:fixed;top:16px;right:16px;z-index:20;display:flex;gap:6px;align-items:center;background:#fffbe6;border:1px solid #f0d96d;border-radius:8px;padding:6px 10px;font-size:11px;color:#866b00;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
+#devbar{position:fixed;top:16px;right:64px;z-index:20;display:flex;gap:6px;align-items:center;background:#fffbe6;border:1px solid #f0d96d;border-radius:8px;padding:6px 10px;font-size:11px;color:#866b00;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 #devbar select,#devbar input[type=file]{font-size:11px;padding:4px 6px;border:1px solid #d4b842;border-radius:5px;background:#fff;color:#333;cursor:pointer}
 #devbar .tag{background:#866b00;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;letter-spacing:.5px}
+.reload-btn{position:fixed;top:16px;z-index:30;width:32px;height:32px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#555;font-size:16px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.04);transition:all .15s;user-select:none}
+.reload-btn:hover{background:#f5f5f5;border-color:#ccc}
+#reload-left{left:16px}
+#reload-right{right:16px}
 #kbd-hint{position:fixed;top:16px;left:calc(var(--src-w) + 16px);z-index:15;background:rgba(255,255,255,0.92);border:1px solid #e0e0e0;border-radius:6px;padding:5px 10px;font-family:'SF Pro',system-ui,-apple-system,sans-serif;font-size:10px;color:#777;line-height:1.5;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:left 0.22s;pointer-events:none}
 #kbd-hint kbd{display:inline-block;padding:1px 5px;background:#f4f4f6;border:1px solid #d6d6d6;border-radius:3px;font-family:'SF Mono',Menlo,monospace;font-size:9px;color:#333;margin:0 2px}
 body.src-collapsed #kbd-hint{left:38px}
@@ -73,6 +77,8 @@ body.src-collapsed #kbd-hint{left:38px}
 <div id='src-resize' title='Resize source'></div>
 <button id='src-toggle' title='Toggle source'>‹</button>
 <div id='kbd-hint'><kbd>D</kbd> DP팝업 토글 · <kbd>⌘</kbd>+클릭 노드 격리 · <kbd>Esc</kbd> 격리 해제 · <kbd>⌘</kbd>+<kbd>±</kbd> 라벨 크기</div>
+<button class='reload-btn' id='reload-left' title='Reload'>⟳</button>
+<button class='reload-btn' id='reload-right' title='Reload'>⟳</button>
 <div id='devbar'>
   <span class='tag'>DEV</span>
   <select id='sampleSel'>
@@ -82,6 +88,7 @@ body.src-collapsed #kbd-hint{left:38px}
     <option value='../test/sample.rdf'>sample.rdf</option>
     <option value='../test/sample.trig'>sample.trig</option>
     <option value='../examples/taeyoung.ttl'>taeyoung.ttl</option>
+    <option value='../test/assiworks.ttl'>assiworks.ttl</option>
     <option value='../test/tbox.ttl|../test/abox.trig'>tbox.ttl + abox.trig</option>
   </select>
   <input type='file' id='fileSel' accept='.owl,.rdf,.ttl,.trig' multiple title='여러 파일 선택 시 자동으로 병합'>
@@ -96,6 +103,7 @@ body.src-collapsed #kbd-hint{left:38px}
 <div id='controls'>
   <button id='bh' class='active'>Hierarchy</button>
   <button id='bf'>Force</button>
+  <button id='b2' title='2D layered layout with curved edges routed around obstructing nodes'>2D</button>
   <button id='bre' title='Run lightweight OWL reasoner: subClassOf transitivity, type propagation, equivalentClass intersectionOf+someValuesFrom'>Reason</button>
   <button id='br'>Reset</button>
 </div>
@@ -114,6 +122,8 @@ function loadScript(){
   document.body.appendChild(s);
 }
 document.getElementById('sampleSel').addEventListener('change',e=>{if(e.target.value){location.hash=encodeURIComponent(e.target.value);location.reload();}});
+document.getElementById('reload-left').addEventListener('click',()=>location.reload());
+document.getElementById('reload-right').addEventListener('click',()=>location.reload());
 function readFiles(files){return Promise.all([...files].map(f=>new Promise(res=>{const r=new FileReader();r.onload=()=>res({text:r.result,name:f.name});r.readAsText(f);})));}
 document.getElementById('fileSel').addEventListener('change',async e=>{const fs=e.target.files;if(!fs.length)return;
   const parts=await readFiles(fs);
@@ -129,7 +139,7 @@ document.getElementById('tboxSel').addEventListener('change',async e=>{const fs=
   const newName=parts.map(p=>p.name).join(' + ')+' + '+window.FNAME;
   sessionStorage.setItem('devFile',JSON.stringify({text:merged,fmt:window.FMT,name:newName}));location.hash='';location.reload();});
 document.getElementById('tboxClose').addEventListener('click',()=>{document.getElementById('tbox-banner').style.display='none';});
-function fetchAll(paths){return Promise.all(paths.map(p=>fetch(p).then(r=>r.ok?r.text():Promise.reject(p))));}
+function fetchAll(paths){return Promise.all(paths.map(p=>fetch(p+(p.includes('?')?'&':'?')+'_t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():Promise.reject(p))));}
 (async()=>{
   const pending=sessionStorage.getItem('devFile');
   if(pending){sessionStorage.removeItem('devFile');const d=JSON.parse(pending);window.RAW=d.text;window.FMT=d.fmt;window.FNAME=d.name;loadScript();maybeShowTBoxBanner();return;}
