@@ -1,0 +1,128 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/kari#> .
+
+ex:Ontology rdf:type owl:Ontology ;
+    rdfs:label "OntoAir — KARI active satellite fleet (currently operating, as of 2026-05)" ;
+    rdfs:comment "한국항공우주연구원(KARI) 운영 중인 현역 위성 7기. NORAD ID는 실제 카탈로그 ID이며 SGP4 propagation을 위해 TLE는 데모용으로 합성된 값(2026-05-10 epoch). 실시간 정확도가 필요하면 Celestrak에서 fetch한 최신 TLE로 교체할 것." .
+
+# Classes
+ex:Satellite rdf:type owl:Class ;
+    rdfs:label "Satellite" .
+ex:EarthObservation rdf:type owl:Class ;
+    rdfs:label "Earth Observation (지구관측 광학)" ;
+    rdfs:subClassOf ex:Satellite .
+ex:SAR rdf:type owl:Class ;
+    rdfs:label "SAR (합성개구레이더)" ;
+    rdfs:subClassOf ex:EarthObservation .
+ex:Geostationary rdf:type owl:Class ;
+    rdfs:label "Geostationary (정지궤도)" ;
+    rdfs:subClassOf ex:Satellite .
+ex:Mission rdf:type owl:Class ;
+    rdfs:label "Mission Program" .
+ex:Agency rdf:type owl:Class ;
+    rdfs:label "Space Agency" .
+
+# Object Properties
+ex:operatedBy rdf:type owl:ObjectProperty ;
+    rdfs:label "operatedBy" ;
+    rdfs:domain ex:Satellite ;
+    rdfs:range ex:Agency .
+ex:partOf rdf:type owl:ObjectProperty ;
+    rdfs:label "partOf (program)" ;
+    rdfs:domain ex:Satellite ;
+    rdfs:range ex:Mission .
+
+# Datatype Properties (TLE + identity)
+ex:tleLine1 rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Satellite ;
+    rdfs:range xsd:string .
+ex:tleLine2 rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Satellite ;
+    rdfs:range xsd:string .
+ex:noradId rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Satellite ;
+    rdfs:range xsd:string .
+ex:launchYear rdf:type owl:DatatypeProperty ;
+    rdfs:domain ex:Satellite ;
+    rdfs:range xsd:integer .
+
+# Agency
+ex:KARI rdf:type ex:Agency ;
+    rdfs:label "KARI (한국항공우주연구원)" .
+
+# Mission programs
+ex:KOMPSAT rdf:type ex:Mission ;
+    rdfs:label "KOMPSAT — 아리랑 (다목적 실용위성)" .
+ex:CAS500 rdf:type ex:Mission ;
+    rdfs:label "CAS500 — 차세대중형위성" .
+ex:Chollian rdf:type ex:Mission ;
+    rdfs:label "Chollian — 천리안 (통신·해양·기상)" .
+
+# KOMPSAT series — currently operating sun-synchronous LEO
+ex:KOMPSAT3 rdf:type ex:EarthObservation ;
+    rdfs:label "KOMPSAT-3 (아리랑 3호)" ;
+    ex:noradId "39084" ;
+    ex:launchYear 2012 ;
+    ex:tleLine1 "1 39084U 12025A   26130.50000000  .00000750  00000-0  21000-4 0  9992" ;
+    ex:tleLine2 "2 39084  98.1300 200.0000 0001500  90.0000 270.0000 14.61500000456780" ;
+    ex:partOf ex:KOMPSAT ;
+    ex:operatedBy ex:KARI .
+
+ex:KOMPSAT3A rdf:type ex:EarthObservation ;
+    rdfs:label "KOMPSAT-3A (아리랑 3A호)" ;
+    ex:noradId "40536" ;
+    ex:launchYear 2015 ;
+    ex:tleLine1 "1 40536U 15014A   26130.50000000  .00000820  00000-0  23500-4 0  9991" ;
+    ex:tleLine2 "2 40536  97.5100 100.0000 0001000  85.0000 275.0000 14.92000000345670" ;
+    ex:partOf ex:KOMPSAT ;
+    ex:operatedBy ex:KARI .
+
+ex:KOMPSAT5 rdf:type ex:SAR ;
+    rdfs:label "KOMPSAT-5 (아리랑 5호)" ;
+    ex:noradId "39227" ;
+    ex:launchYear 2013 ;
+    ex:tleLine1 "1 39227U 13042A   26130.50000000  .00000680  00000-0  19000-4 0  9994" ;
+    ex:tleLine2 "2 39227  97.6500  50.0000 0001200  92.0000 268.0000 14.85000000234560" ;
+    ex:partOf ex:KOMPSAT ;
+    ex:operatedBy ex:KARI .
+
+# CAS500 series — currently operating next-gen mid-class LEO
+ex:CAS500-1 rdf:type ex:EarthObservation ;
+    rdfs:label "CAS500-1 (차세대중형위성 1호)" ;
+    ex:noradId "47720" ;
+    ex:launchYear 2021 ;
+    ex:tleLine1 "1 47720U 21017A   26130.50000000  .00001500  00000-0  35000-4 0  9990" ;
+    ex:tleLine2 "2 47720  97.5500 130.0000 0001200  88.0000 272.0000 15.20000000234560" ;
+    ex:partOf ex:CAS500 ;
+    ex:operatedBy ex:KARI .
+
+ex:CAS500-2 rdf:type ex:EarthObservation ;
+    rdfs:label "CAS500-2 (차세대중형위성 2호, 누리호 발사)" ;
+    ex:noradId "56216" ;
+    ex:launchYear 2023 ;
+    ex:tleLine1 "1 56216U 23078A   26130.50000000  .00001600  00000-0  37000-4 0  9991" ;
+    ex:tleLine2 "2 56216  97.5400 210.0000 0001300  87.0000 273.0000 15.21000000345670" ;
+    ex:partOf ex:CAS500 ;
+    ex:operatedBy ex:KARI .
+
+# Chollian series — currently operating GEO (~128-130°E above Korea)
+ex:Chollian2A rdf:type ex:Geostationary ;
+    rdfs:label "Chollian-2A / GK-2A (천리안 2A호)" ;
+    ex:noradId "43823" ;
+    ex:launchYear 2018 ;
+    ex:tleLine1 "1 43823U 18108A   26130.50000000 -.00000150  00000-0  00000+0 0  9995" ;
+    ex:tleLine2 "2 43823   0.0500 176.5000 0001500  90.0000 270.0000  1.00270000123450" ;
+    ex:partOf ex:Chollian ;
+    ex:operatedBy ex:KARI .
+
+ex:Chollian2B rdf:type ex:Geostationary ;
+    rdfs:label "Chollian-2B / GK-2B (천리안 2B호)" ;
+    ex:noradId "45465" ;
+    ex:launchYear 2020 ;
+    ex:tleLine1 "1 45465U 20020A   26130.50000000 -.00000130  00000-0  00000+0 0  9993" ;
+    ex:tleLine2 "2 45465   0.0600 178.3000 0001000  88.0000 272.0000  1.00270000234560" ;
+    ex:partOf ex:Chollian ;
+    ex:operatedBy ex:KARI .

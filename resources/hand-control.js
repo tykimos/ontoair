@@ -162,10 +162,70 @@ function zoom(delta){
 function pickAt(lmPt){OA.selectAtNDC(lmPt.x*2-1,-(lmPt.y*2-1));}
 function hoverAt(lmPt){OA.hoverAtNDC(lmPt.x*2-1,-(lmPt.y*2-1));}
 
+// While isolation is active, snap the on-screen dial to the user's LEFT palm so it
+// reads like a knob held in their off hand. When the left hand disappears, drop the
+// inline overrides and the CSS rules return the dial to its default corner.
+function updateDialAttachment(){
+  const dial=document.getElementById('depth-dial');if(!dial)return;
+  const isoRoot=OA.getIsolationRoot&&OA.getIsolationRoot();
+  const lm=state.handsRaw.L;
+  const valid=isoRoot&&lm&&lm.length>=21&&lm[0]&&lm[0].x!==undefined&&lm[9]&&lm[9].x!==undefined;
+  if(valid){
+    // Use the SAME drawn-pixel mapping as the hand outline overlay (computeDrawnPts).
+    // Raw lm[].x*innerWidth is wrist-anchored *before* the on-screen scale is applied,
+    // so the dial would land far from the visible hand. Instead drop it on the centroid
+    // of the five palm landmarks IN DRAWN COORDS so it reads as a knob in the palm.
+    const pts=computeDrawnPts(lm,'L');
+    let sx=0,sy=0;[0,5,9,13,17].forEach(i=>{sx+=pts[i].x;sy+=pts[i].y;});
+    const cx=sx/5, cy=sy/5;
+    const ox=Math.max(48,Math.min(innerWidth-48,cx));
+    const oy=Math.max(48,Math.min(innerHeight-48,cy));
+    dial.style.left=ox+'px';dial.style.top=oy+'px';
+    dial.style.right='';dial.style.bottom='';
+    dial.style.transform='translate(-50%,-50%)';
+  }else{
+    dial.style.left='';dial.style.top='';dial.style.right='';dial.style.bottom='';dial.style.transform='';
+  }
+}
+
+// ---- Neighborhood reveal: dial driven by LEFT-palm rotation. Rotating the palm
+// counterclockwise (from the user's POV) advances the BFS depth one step every
+// 36° of accumulated rotation; clockwise rolls it back.
+const NEIGHBORHOOD_STEP_RAD=Math.PI/5;       // 36° per depth tick
+const NEIGHBORHOOD_MAX=5;                    // dial has 5 stops: depths 1..5
+function _palmAngle(lm){const dx=lm[9].x-lm[0].x,dy=lm[9].y-lm[0].y;return Math.atan2(dy,dx);}
+function updateNeighborhoodDepth(){
+  if(!OA.getIsolationRoot||!OA.getIsolationRoot()||!OA.setNeighborhoodDepth){
+    state.palmAngleRef=null;state.angleAcc=0;return;
+  }
+  const lm=state.handsRaw.L;
+  if(!lm||lm.length<21){state.palmAngleRef=null;state.angleAcc=0;return;}
+  for(let i=0;i<21;i++)if(!lm[i]||lm[i].x===undefined){state.palmAngleRef=null;state.angleAcc=0;return;}
+  const ang=_palmAngle(lm);
+  if(state.palmAngleRef==null){state.palmAngleRef=ang;state.angleAcc=0;return;}
+  let dA=ang-state.palmAngleRef;while(dA>Math.PI)dA-=Math.PI*2;while(dA<-Math.PI)dA+=Math.PI*2;
+  state.palmAngleRef=ang;state.angleAcc+=dA;
+  // Image coords are y-down, so a counterclockwise rotation from the user's POV
+  // produces a NEGATIVE delta in atan2(dy,dx). Negative accumulator ⇒ depth++.
+  while(state.angleAcc<=-NEIGHBORHOOD_STEP_RAD){
+    const cur=OA.getIsolationDepth?OA.getIsolationDepth():1;
+    if(cur>=NEIGHBORHOOD_MAX){state.angleAcc=-NEIGHBORHOOD_STEP_RAD/2;break;}
+    OA.setNeighborhoodDepth(cur+1);
+    state.angleAcc+=NEIGHBORHOOD_STEP_RAD;
+  }
+  while(state.angleAcc>=NEIGHBORHOOD_STEP_RAD){
+    const cur=OA.getIsolationDepth?OA.getIsolationDepth():1;
+    if(cur<=1){state.angleAcc=NEIGHBORHOOD_STEP_RAD/2;break;}
+    OA.setNeighborhoodDepth(cur-1);
+    state.angleAcc-=NEIGHBORHOOD_STEP_RAD;
+  }
+}
+
 // ---- Router ----
 function route(now){
   const gR=state.gestureR,gL=state.gestureL;
   state.mode='Idle';
+  updateNeighborhoodDepth();
 
   // Pinch on right hand → Pick/Drag
   if(gR==='pinch'&&state.handsRaw.R&&state.tipNDC){
@@ -174,6 +234,8 @@ function route(now){
       const picked=OA.pickAndDragAtNDC(ndcX,ndcY);
       state.dragging=picked!==null;
       state.mode=picked?'Pick+Drag':'Empty';
+      // Pick → isolate at depth 1; left-palm rotation then steps the BFS depth.
+      if(picked&&OA.setNeighborhood){OA.setNeighborhood(picked,1);state.palmAngleRef=null;state.angleAcc=0;}
     }else if(state.dragging){
       OA.updateNodeDrag(ndcX,ndcY);state.mode='Drag';
     }else state.mode='Pinch';
@@ -392,6 +454,7 @@ function onResults(r){
   if(state.gL===rawL)state.stL++;else state.stL=0;state.gL=rawL;if(state.stL>=2)state.gestureL=rawL;
   if(state.gR===rawR)state.stR++;else state.stR=0;state.gR=rawR;if(state.stR>=2)state.gestureR=rawR;
   route(performance.now());
+  updateDialAttachment();
   state.frames++;
   modeEl.textContent=state.mode+' · L:'+state.gestureL+' R:'+state.gestureR+' · f'+state.frames;
   fmtDebug('L',state.handsRaw.L,state.gestureL);

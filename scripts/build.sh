@@ -33,6 +33,10 @@ done
 cp "$PROJECT_ROOT/resources/hand-control.js" "$APP/Contents/Resources/"
 cp -R "$PROJECT_ROOT/resources/mediapipe"    "$APP/Contents/Resources/"
 
+# GIF encoder (main app only — QL preview doesn't need recording)
+cp "$PROJECT_ROOT/resources/gif.js"        "$APP/Contents/Resources/"
+cp "$PROJECT_ROOT/resources/gif.worker.js" "$APP/Contents/Resources/"
+
 # Write PkgInfo
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 echo -n "XPC!????" > "$APPEX/Contents/PkgInfo"

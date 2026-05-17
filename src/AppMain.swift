@@ -131,8 +131,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
             let fmt = (body["fmt"] as? String).flatMap { ["owl","rdf","ttl"].contains($0) ? $0 : nil } ?? "ttl"
             let name = body["name"] as? String ?? "untitled"
             loadOntologyContent(text: text, format: fmt, fileName: name)
+        case "saveFile":
+            let name = body["name"] as? String ?? "ontoair-recording"
+            let b64 = body["b64"] as? String ?? ""
+            saveBase64ToDownloads(name: name, b64: b64)
         default:
             break
+        }
+    }
+
+    private func saveBase64ToDownloads(name: String, b64: String) {
+        guard !b64.isEmpty, let data = Data(base64Encoded: b64, options: .ignoreUnknownCharacters) else { return }
+        let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent("Downloads")
+        let safe = name.replacingOccurrences(of: "/", with: "_")
+        let url = downloads.appendingPathComponent(safe)
+        do {
+            try data.write(to: url, options: .atomic)
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } catch {
+            NSSound.beep()
         }
     }
 

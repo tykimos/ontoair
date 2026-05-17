@@ -1,0 +1,169 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/chess#> .
+
+ex:Ontology rdf:type owl:Ontology ;
+    rdfs:label "Chess: Pin — Bishop g5 pins Knight f6 against Queen d8" ;
+    rdfs:comment "Pin is a 3-piece pattern: pinningPiece, pinnedPiece, pinnedTo (the high-value piece behind). The pinned piece loses mobility because moving it exposes the higher-value piece. This sample shows the geometric+value reasoning that pure 2-place relations cannot express, and demonstrates how the reasoner can derive PinnedPiece as a new class." ;
+    ex:gridDimX 8 ;
+    ex:gridDimY 8 .
+
+# === TBox — Piece hierarchy ===
+ex:Piece rdf:type owl:Class ; rdfs:label "Piece" .
+ex:King rdf:type owl:Class ; rdfs:label "King" ; rdfs:subClassOf ex:Piece .
+ex:Queen rdf:type owl:Class ; rdfs:label "Queen" ; rdfs:subClassOf ex:Piece .
+ex:Rook rdf:type owl:Class ; rdfs:label "Rook" ; rdfs:subClassOf ex:Piece .
+ex:Bishop rdf:type owl:Class ; rdfs:label "Bishop" ; rdfs:subClassOf ex:Piece .
+ex:Knight rdf:type owl:Class ; rdfs:label "Knight" ; rdfs:subClassOf ex:Piece .
+ex:Pawn rdf:type owl:Class ; rdfs:label "Pawn" ; rdfs:subClassOf ex:Piece .
+
+# Reasoner-derived: piece in a Pin's focus position ⇒ PinnedPiece
+ex:PinnedPiece rdf:type owl:Class ;
+    rdfs:label "Pinned Piece" ;
+    rdfs:subClassOf ex:Piece ;
+    rdfs:comment "Reasoner rule: ∃Pin(?pin) ∧ ?pin focusedOn ?p ⇒ ?p a PinnedPiece. Cannot move freely without exposing the piece behind." .
+
+# === TBox — Square ===
+ex:Square rdf:type owl:Class ; rdfs:label "Square" .
+
+# === TBox — Tactical patterns ===
+ex:TacticalPattern rdf:type owl:Class ; rdfs:label "Tactical Pattern" .
+ex:Pin rdf:type owl:Class ; rdfs:label "Pin" ; rdfs:subClassOf ex:TacticalPattern ;
+    rdfs:comment "Three pieces on the same line (file/rank/diagonal): attacker → pinned → pinnedTo. Pinned piece loses mobility." .
+
+# Pin subtypes — derivable from pinnedTo's class
+ex:AbsolutePin rdf:type owl:Class ;
+    rdfs:label "Absolute Pin" ;
+    rdfs:subClassOf ex:Pin ;
+    rdfs:comment "Reasoner rule: Pin where pinnedTo a King ⇒ AbsolutePin. Pinned piece legally cannot move (would expose King)." .
+ex:RelativePin rdf:type owl:Class ;
+    rdfs:label "Relative Pin" ;
+    rdfs:subClassOf ex:Pin ;
+    rdfs:comment "Reasoner rule: Pin where pinnedTo is NOT a King (Queen, Rook, etc.) ⇒ RelativePin. Pinned piece may move at material cost." .
+
+# === TBox — Move ===
+ex:Move rdf:type owl:Class ; rdfs:label "Move" .
+ex:CaptureMove rdf:type owl:Class ; rdfs:label "Capture" ; rdfs:subClassOf ex:Move .
+
+# === ObjectProperties ===
+ex:locatedAt rdf:type owl:ObjectProperty ; rdfs:domain ex:Piece ; rdfs:range ex:Square .
+ex:attacks rdf:type owl:ObjectProperty ; rdfs:label "attacks" ; rdfs:domain ex:Piece ; rdfs:range ex:Piece .
+ex:defends rdf:type owl:ObjectProperty ; rdfs:label "defends" ; rdfs:domain ex:Piece ; rdfs:range ex:Piece .
+
+# Pin-specific relations (the heart of this sample)
+ex:pinnedBy rdf:type owl:ObjectProperty ; rdfs:label "pinnedBy" ;
+    rdfs:domain ex:Pin ; rdfs:range ex:Piece ;
+    rdfs:comment "The pinning piece (attacker on the line)" .
+ex:pinnedTo rdf:type owl:ObjectProperty ; rdfs:label "pinnedTo" ;
+    rdfs:domain ex:Pin ; rdfs:range ex:Piece ;
+    rdfs:comment "The high-value piece behind on the same line" .
+ex:focusedOn rdf:type owl:ObjectProperty ; rdfs:label "focusedOn" .
+ex:cannotMoveTo rdf:type owl:ObjectProperty ; rdfs:label "cannotMoveTo" ;
+    rdfs:domain ex:PinnedPiece ; rdfs:range ex:Square ;
+    rdfs:comment "Squares the pinned piece is forbidden from (would expose pinnedTo)" .
+
+# === DatatypeProperties ===
+ex:color rdf:type owl:DatatypeProperty ; rdfs:range xsd:string .
+ex:pieceValue rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridX rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridY rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:pinLine rdf:type owl:DatatypeProperty ; rdfs:range xsd:string ;
+    rdfs:comment "Human-readable description of the geometric line (e.g., 'h4-d8 diagonal')" .
+
+# === ABox — Key squares ===
+ex:g5 rdf:type ex:Square ; rdfs:label "g5" ; ex:gridX 6 ; ex:gridY 4 .
+ex:f6 rdf:type ex:Square ; rdfs:label "f6" ; ex:gridX 5 ; ex:gridY 5 .
+ex:e7 rdf:type ex:Square ; rdfs:label "e7" ; ex:gridX 4 ; ex:gridY 6 .
+ex:d8 rdf:type ex:Square ; rdfs:label "d8" ; ex:gridX 3 ; ex:gridY 7 .
+
+# === ABox — White pieces ===
+ex:WhiteBishop_g5 rdf:type ex:Bishop ;
+    rdfs:label "♗" ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:gridX 6 ; ex:gridY 4 ;
+    ex:locatedAt ex:g5 ;
+    ex:attacks ex:BlackKnight_f6 .
+
+ex:WhiteKnight_f3 rdf:type ex:Knight ;
+    rdfs:label "♘" ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:gridX 5 ; ex:gridY 2 ;
+    ex:attacks ex:BlackPawn_e5 .
+
+ex:WhitePawn_e4 rdf:type ex:Pawn ;
+    rdfs:label "♙" ;
+    ex:color "White" ; ex:pieceValue 1 ;
+    ex:gridX 4 ; ex:gridY 3 .
+
+ex:WhiteKing_e1 rdf:type ex:King ;
+    rdfs:label "♔" ;
+    ex:color "White" ; ex:pieceValue 0 ;
+    ex:gridX 4 ; ex:gridY 0 .
+
+ex:WhiteQueen_d1 rdf:type ex:Queen ;
+    rdfs:label "♕" ;
+    ex:color "White" ; ex:pieceValue 9 ;
+    ex:gridX 3 ; ex:gridY 0 .
+
+# === ABox — Black pieces ===
+# The pinned piece — multi-typed as PinnedPiece via reasoner derivation
+ex:BlackKnight_f6 rdf:type ex:Knight, ex:PinnedPiece ;
+    rdfs:label "♞" ;
+    rdfs:comment "Derived PinnedPiece: cannot move freely because doing so exposes the Queen on d8 to the Bishop on g5." ;
+    ex:color "Black" ; ex:pieceValue 3 ;
+    ex:gridX 5 ; ex:gridY 5 ;
+    ex:locatedAt ex:f6 .
+
+ex:BlackQueen_d8 rdf:type ex:Queen ;
+    rdfs:label "♛" ;
+    ex:color "Black" ; ex:pieceValue 9 ;
+    ex:gridX 3 ; ex:gridY 7 ;
+    ex:locatedAt ex:d8 .
+
+ex:BlackKing_e8 rdf:type ex:King ;
+    rdfs:label "♚" ;
+    ex:color "Black" ; ex:pieceValue 0 ;
+    ex:gridX 4 ; ex:gridY 7 .
+
+ex:BlackPawn_e5 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 4 ; ex:gridY 4 .
+
+ex:BlackKnight_c6 rdf:type ex:Knight ;
+    rdfs:label "♞" ;
+    ex:color "Black" ; ex:pieceValue 3 ;
+    ex:gridX 2 ; ex:gridY 5 .
+
+ex:BlackPawn_g7 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 6 ; ex:gridY 6 .
+
+# === The Pin pattern (reified — 3 pieces in one geometric line) ===
+# This is a RELATIVE pin (pinnedTo is Queen, not King). If Knight moves, Black loses Queen-for-Bishop trade (9 vs 3 = -6 material).
+ex:Pin_Nf6_to_Qd8 rdf:type ex:Pin, ex:RelativePin ;
+    rdfs:label "Pin: ♞f6 → ♛d8 by ♗g5" ;
+    rdfs:comment "Bishop g5 pins Black Knight f6 along the h4-d8 diagonal. The Black Queen on d8 is the high-value piece behind. If the Knight moves, the Bishop captures the Queen." ;
+    ex:pinnedBy ex:WhiteBishop_g5 ;
+    ex:focusedOn ex:BlackKnight_f6 ;
+    ex:pinnedTo ex:BlackQueen_d8 ;
+    ex:pinLine "h4-d8 diagonal" .
+
+# === Consequence: the pinned Knight has constrained moves ===
+# In OntoAir terms: list squares the Knight CANNOT move to (those that would unblock the line).
+# Knight on f6 normally could move to: d5, e4, g4, h5, h7, g8, e8, d7. ALL of those leave the diagonal g5→f6→e7→d8 exposed except moves that ALSO block the line (none in this case since Knight can't go back along diagonals from this position).
+# So in this position, the pinned Knight cannot move ANYWHERE without exposing the Queen.
+ex:BlackKnight_f6 ex:cannotMoveTo ex:d5, ex:e4, ex:g4, ex:h5, ex:h7, ex:g8, ex:e8, ex:d7 .
+
+# Dummy square nodes for the "cannot-move" targets (only need them as Square individuals for the relation to make sense)
+ex:d5 rdf:type ex:Square ; rdfs:label "d5" ; ex:gridX 3 ; ex:gridY 4 .
+ex:e4 rdf:type ex:Square ; rdfs:label "e4" ; ex:gridX 4 ; ex:gridY 3 .
+ex:g4 rdf:type ex:Square ; rdfs:label "g4" ; ex:gridX 6 ; ex:gridY 3 .
+ex:h5 rdf:type ex:Square ; rdfs:label "h5" ; ex:gridX 7 ; ex:gridY 4 .
+ex:h7 rdf:type ex:Square ; rdfs:label "h7" ; ex:gridX 7 ; ex:gridY 6 .
+ex:g8 rdf:type ex:Square ; rdfs:label "g8" ; ex:gridX 6 ; ex:gridY 7 .
+ex:e8 rdf:type ex:Square ; rdfs:label "e8" ; ex:gridX 4 ; ex:gridY 7 .
+ex:d7 rdf:type ex:Square ; rdfs:label "d7" ; ex:gridX 3 ; ex:gridY 6 .

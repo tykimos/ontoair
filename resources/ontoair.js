@@ -42,6 +42,41 @@ function parseXML(xml){
   });
   const indIds=new Set(R.ind.map(i=>i.id)),opIds=new Set(R.op.map(o=>o.id));
   allAssert.forEach(([s,p,o])=>{if(indIds.has(s)&&opIds.has(p)&&indIds.has(o))R.rel.push({s,p,o});});
+  // Geo: scan WGS84/schema literal lat/long children. Mirrors parseTTL's R.geo shape.
+  const _gxAcc={};
+  doc.querySelectorAll('*').forEach(el=>{const a=ga(el);if(!a)return;const subj=localName(a);
+    for(const c of el.children){const pr=(c.localName||'').toLowerCase();
+      if(pr==='lat'||pr==='latitude'||pr==='long'||pr==='lng'||pr==='longitude'){
+        const txt=(c.textContent||'').trim();const m=txt.match(/^[+-]?\d+(?:\.\d+)?/);if(!m)continue;
+        const num=parseFloat(m[0]);if(isNaN(num))continue;
+        if(pr==='lat'||pr==='latitude')(_gxAcc[subj]=_gxAcc[subj]||{}).lat=num;
+        else (_gxAcc[subj]=_gxAcc[subj]||{}).lon=num;}}});
+  const _gxNodes=[];Object.entries(_gxAcc).forEach(([id,v])=>{if(typeof v.lat==='number'&&typeof v.lon==='number'&&v.lat>=-90&&v.lat<=90&&v.lon>=-180&&v.lon<=180)_gxNodes.push({id,lat:v.lat,lon:v.lon});});
+  R.geo={nodes:_gxNodes};R.hasGeo=_gxNodes.length>0;
+  // Orbit: scan literal tleLine1/2 children. Mirrors parseTTL's R.satellites shape.
+  const _oxAcc={};
+  doc.querySelectorAll('*').forEach(el=>{const a=ga(el);if(!a)return;const subj=localName(a);
+    for(const c of el.children){const pr=(c.localName||'').toLowerCase();const txt=(c.textContent||'').trim();if(!txt)continue;
+      if(pr==='tleline1'||pr==='tle1')(_oxAcc[subj]=_oxAcc[subj]||{}).tle1=txt;
+      else if(pr==='tleline2'||pr==='tle2')(_oxAcc[subj]=_oxAcc[subj]||{}).tle2=txt;
+      else if(pr==='tleepoch'||pr==='epoch')(_oxAcc[subj]=_oxAcc[subj]||{}).epoch=txt;
+      else if(pr==='noradid'||pr==='norad')(_oxAcc[subj]=_oxAcc[subj]||{}).norad=txt;}});
+  const _oxSats=[];Object.entries(_oxAcc).forEach(([id,v])=>{if(v.tle1&&v.tle2&&v.tle1.length>50&&v.tle2.length>50)_oxSats.push({id,tle1:v.tle1,tle2:v.tle2,epoch:v.epoch||null,norad:v.norad||null});});
+  R.satellites=_oxSats;R.hasOrbit=_oxSats.length>0;
+  // Grid: scan literal gridX/gridY children. Mirrors parseTTL's R.grid shape.
+  const _gxgAcc={};let _gxgDimX=null,_gxgDimY=null;
+  doc.querySelectorAll('*').forEach(el=>{const a=ga(el);if(!a)return;const subj=localName(a);
+    for(const c of el.children){const pr=(c.localName||'').toLowerCase();const txt=(c.textContent||'').trim();if(!txt)continue;
+      const dimNum=parseInt(txt);
+      if(!isNaN(dimNum)&&dimNum>0){
+        if(pr==='griddimx'||pr==='gridwidth'||pr==='gridcols'){_gxgDimX=Math.max(_gxgDimX||0,dimNum);continue;}
+        else if(pr==='griddimy'||pr==='gridheight'||pr==='gridrows'){_gxgDimY=Math.max(_gxgDimY||0,dimNum);continue;}
+      }
+      let num=parseFloat(txt);if(isNaN(num)){const m=txt.match(/^[a-zA-Z]/);if(m)num=m[0].toLowerCase().charCodeAt(0)-97;}if(isNaN(num))continue;
+      if(pr==='gridx'||pr==='col'||pr==='column')(_gxgAcc[subj]=_gxgAcc[subj]||{}).gx=num;
+      else if(pr==='gridy'||pr==='row')(_gxgAcc[subj]=_gxgAcc[subj]||{}).gy=num;}});
+  const _gxgNodes=[];Object.entries(_gxgAcc).forEach(([id,v])=>{if(typeof v.gx==='number'&&typeof v.gy==='number')_gxgNodes.push({id,gx:v.gx,gy:v.gy});});
+  R.grid={nodes:_gxgNodes,dimX:_gxgDimX,dimY:_gxgDimY};R.hasGrid=_gxgNodes.length>0;
   return R;}
 
 function extractEquivAxioms(text,pfx){
@@ -94,9 +129,12 @@ function parseTTL(ttl){
   function rn(c){return localName(eu(c));}
   let bd=ct.replace(/@prefix\s+\w*:?\s*<[^>]+>\s*\./g,'').replace(/PREFIX\s+\w*:?\s*<[^>]+>/gi,'').replace(/@base\s*<[^>]+>\s*\./g,'').trim();
   const sts=[];let dp=0,qc=null,st='';
-  for(let i=0;i<bd.length;i++){const c=bd[i];if(qc){st+=c;if(c===qc&&bd[i-1]!=='\\')qc=null;continue;}if(c==='"'||c==="'"){qc=c;st+=c;continue;}if(c==='['||c==='('){dp++;st+=c;continue;}if(c===']'||c===')'){dp--;st+=c;continue;}if(c==='.'&&dp===0){if(st.trim())sts.push(st.trim());st='';continue;}st+=c;}
+  for(let i=0;i<bd.length;i++){const c=bd[i];if(qc){st+=c;if(c===qc&&bd[i-1]!=='\\')qc=null;continue;}if(c==='"'||c==="'"){qc=c;st+=c;continue;}if(c==='['||c==='('){dp++;st+=c;continue;}if(c===']'||c===')'){dp--;st+=c;continue;}if(c==='.'&&dp===0){const pv=bd[i-1],nx=bd[i+1];if(pv&&nx&&/\d/.test(pv)&&/\d/.test(nx)){st+=c;continue;}if(st.trim())sts.push(st.trim());st='';continue;}st+=c;}
   if(st.trim())sts.push(st.trim());
-  sts.forEach(s=>{const pts=s.split(/\s*;\s*/);if(!pts.length)return;const ft=pts[0].match(/\S+/g);if(!ft||ft.length<2)return;const subj=ft[0];
+  // Quote-aware tokenizer: splits on whitespace but treats "..." / '...' as single tokens (preserves internal whitespace).
+  // Critical for TLE strings where column alignment must survive parsing.
+  function _tok(s){const out=[];let cur='',q=null;for(let i=0;i<s.length;i++){const c=s[i];if(q){cur+=c;if(c===q&&s[i-1]!=='\\')q=null;continue;}if(c==='"'||c==="'"){if(cur){out.push(cur);cur='';}cur=c;q=c;continue;}if(/\s/.test(c)){if(cur){out.push(cur);cur='';}continue;}cur+=c;}if(cur)out.push(cur);return out;}
+  sts.forEach(s=>{const pts=s.split(/\s*;\s*/);if(!pts.length)return;const ft=_tok(pts[0]);if(!ft||ft.length<2)return;const subj=ft[0];
     function proc(tk){if(tk.length<2)return;const pred=tk[0];
       tk.slice(1).join(' ').split(/\s*,\s*/).forEach(obj=>{obj=obj.trim();if(!obj)return;
         const s2=rn(subj),p=eu(pred),o=rn(obj),pL=localName(p);
@@ -116,7 +154,7 @@ function parseTTL(ttl){
         else if(pL==='label'){const m=obj.match(/^"((?:[^"\\]|\\.)*)"/);if(m)R.labels[s2]=m[1];}
         else if(pL==='comment'){const m=obj.match(/^"((?:[^"\\]|\\.)*)"/);if(m)R.comments[s2]=m[1];}
         else{allAssert.push([s2,pL,obj,o]);}});}
-    proc(ft.slice(1));for(let i=1;i<pts.length;i++){const t=pts[i].match(/\S+/g);if(t)proc(t);}});
+    proc(ft.slice(1));for(let i=1;i<pts.length;i++){const t=_tok(pts[i]);if(t)proc(t);}});
   const indIds=new Set(R.ind.map(i=>i.id)),opIds=new Set(R.op.map(o=>o.id)),dpIds=new Set(R.dp.map(d=>d.id));
   let implicitProps=0;
   allAssert.forEach(([s,p,objRaw,o])=>{
@@ -131,12 +169,40 @@ function parseTTL(ttl){
     }
   });
   R.missingTBox=implicitProps>3&&R.cls.length<2;
+  // Geo: lat/long aggregation from R.dpv (literal datatype values). Pairs only.
+  const _gtAcc={};
+  R.dpv.forEach(({s,p,v})=>{const k=String(p).toLowerCase();const m=String(v).match(/^[+-]?\d+(?:\.\d+)?/);if(!m)return;const num=parseFloat(m[0]);if(isNaN(num))return;
+    if(k==='lat'||k==='latitude')(_gtAcc[s]=_gtAcc[s]||{}).lat=num;
+    else if(k==='long'||k==='lng'||k==='longitude')(_gtAcc[s]=_gtAcc[s]||{}).lon=num;});
+  const _gtNodes=[];Object.entries(_gtAcc).forEach(([id,v])=>{if(typeof v.lat==='number'&&typeof v.lon==='number'&&v.lat>=-90&&v.lat<=90&&v.lon>=-180&&v.lon<=180)_gtNodes.push({id,lat:v.lat,lon:v.lon});});
+  R.geo={nodes:_gtNodes};R.hasGeo=_gtNodes.length>0;
+  // Orbit: aggregate TLE pairs from dpv. Satellites have tleLine1 + tleLine2 (each ~69 chars).
+  const _otAcc={};
+  R.dpv.forEach(({s,p,v})=>{const k=String(p).toLowerCase();
+    if(k==='tleline1'||k==='tle1')(_otAcc[s]=_otAcc[s]||{}).tle1=String(v);
+    else if(k==='tleline2'||k==='tle2')(_otAcc[s]=_otAcc[s]||{}).tle2=String(v);
+    else if(k==='tleepoch'||k==='epoch')(_otAcc[s]=_otAcc[s]||{}).epoch=String(v);
+    else if(k==='noradid'||k==='norad')(_otAcc[s]=_otAcc[s]||{}).norad=String(v);});
+  const _otSats=[];Object.entries(_otAcc).forEach(([id,v])=>{if(v.tle1&&v.tle2&&v.tle1.length>50&&v.tle2.length>50)_otSats.push({id,tle1:v.tle1,tle2:v.tle2,epoch:v.epoch||null,norad:v.norad||null});});
+  R.satellites=_otSats;R.hasOrbit=_otSats.length>0;
+  // Grid: aggregate gridX/gridY (alias col/row, column/row) from dpv. Letters 'a'..'z' → 0..25 auto-convert.
+  const _grAcc={};
+  R.dpv.forEach(({s,p,v})=>{const k=String(p).toLowerCase();let num=parseFloat(String(v));if(isNaN(num)){const m=String(v).trim().match(/^[a-zA-Z]/);if(m)num=m[0].toLowerCase().charCodeAt(0)-97;}if(isNaN(num))return;
+    if(k==='gridx'||k==='col'||k==='column')(_grAcc[s]=_grAcc[s]||{}).gx=num;
+    else if(k==='gridy'||k==='row')(_grAcc[s]=_grAcc[s]||{}).gy=num;});
+  // Board dimensions — gridDimX/Y can be declared on ANY subject (incl. Ontology) so scan allAssert directly.
+  let _grDimX=null,_grDimY=null;
+  allAssert.forEach(([_s,p,objRaw])=>{const k=String(p).toLowerCase();const m=String(objRaw).match(/^[+-]?\d+/);if(!m)return;const num=parseInt(m[0]);if(isNaN(num)||num<=0)return;
+    if(k==='griddimx'||k==='gridwidth'||k==='gridcols')_grDimX=Math.max(_grDimX||0,num);
+    else if(k==='griddimy'||k==='gridheight'||k==='gridrows')_grDimY=Math.max(_grDimY||0,num);});
+  const _grNodes=[];Object.entries(_grAcc).forEach(([id,v])=>{if(typeof v.gx==='number'&&typeof v.gy==='number')_grNodes.push({id,gx:v.gx,gy:v.gy});});
+  R.grid={nodes:_grNodes,dimX:_grDimX,dimY:_grDimY};R.hasGrid=_grNodes.length>0;
   return R;}
 
 const O=FMT==='ttl'?parseTTL(RAW):parseXML(RAW);window.O=O;
 
 const canvas=document.createElement('canvas');document.body.appendChild(canvas);
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
 renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setClearColor(0xffffff);
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.1,800);camera.position.set(0,20,55);
@@ -246,7 +312,9 @@ function hierLayout(){
 hierLayout();updateFloor();
 
 function makeLabel(text,size,subtitle){size=size||1.6;
-  const W=1280,H=subtitle?260:160;
+  // Canvas height grows with line count so each line keeps the same px-per-world ratio as a single-line label.
+  const lines=subtitle?2:1;
+  const W=1280,H=160*lines;
   const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
   x.textAlign='center';x.textBaseline='middle';
   let l=text;if(l.length>24)l=l.substring(0,22)+'...';
@@ -265,14 +333,20 @@ function makeLabel(text,size,subtitle){size=size||1.6;
     x.fillText(l,W/2,H/2);
   }
   const t=new THREE.CanvasTexture(c);const m=new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false});
-  const s=new THREE.Sprite(m);s.userData.baseScale=size;s.userData.aspect=W/H;s.scale.set(size*W/H,size,1);allLabels.push(s);return s;}
+  const baseScale=size*lines,aspect=W/H;
+  const s=new THREE.Sprite(m);s.userData.baseScale=baseScale;s.userData.aspect=aspect;s.scale.set(baseScale*aspect,baseScale,1);allLabels.push(s);return s;}
 
 function makeNode(id,type,x,y,z,label,uri){const geo=type==='Class'?GEO.Class:GEO.Individual;
   const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide}));
   mesh.position.set(x,y,z);mesh.userData={id,type,label:label||id,uri:uri||'',radius:type==='Class'?CLS_R:IND_R};
   const outPts=circleOutlinePts(type==='Class'?CLS_R:IND_R);
   mesh.add(outlineLine(outPts,type==='Class',0x333333));
-  const lbl=makeLabel(label||id,1.4);lbl.position.set(0,0,0.1);mesh.add(lbl);
+  const baseId=label||id;
+  const rdfsLabel=O.labels&&O.labels[id];
+  const _norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+  const sameAfterStrip=rdfsLabel&&_norm(rdfsLabel)===_norm(baseId);
+  const lbl=(rdfsLabel&&!sameAfterStrip)?makeLabel(rdfsLabel,1.4,baseId):makeLabel(rdfsLabel||baseId,1.4);
+  lbl.position.set(0,0,0.1);mesh.add(lbl);
   scene.add(mesh);nodeMeshes.push(mesh);return mesh;}
 
 O.cls.forEach(c=>{const p=nodeMap[c.id];if(p)makeNode(c.id,'Class',p.x,p.y,p.z,c.id,c.uri);});
@@ -479,24 +553,69 @@ Object.keys(dpByIndiv).forEach(iid=>{const texts=dpByIndiv[iid].map(dp=>dp.name+
 const raycaster=new THREE.Raycaster(),mouse=new THREE.Vector2();let hovered=null;
 let dragging=null;const dragPlane=new THREE.Plane(),dragOffset=new THREE.Vector3(),dragPoint=new THREE.Vector3(),camDir=new THREE.Vector3();
 let pointerDownPos=null,movedFar=false;
-let selectedRoot=null,selectedLine=null,handHoverRoot=null,isolatedRoot=null;const selectedSet=new Set();
-function _isolationConnected(rootId){const set=new Set([rootId]);
-  edgeObjs.forEach(l=>{if(l.userData.srcId===rootId)set.add(l.userData.tgtId);else if(l.userData.tgtId===rootId)set.add(l.userData.srcId);});
-  arrowObjs.forEach(a=>{if(a.srcId===rootId)set.add(a.tgtId);else if(a.tgtId===rootId)set.add(a.srcId);});
+let selectedRoot=null,selectedLine=null,handHoverRoot=null,isolatedRoot=null,isolationDepth=1;const selectedSet=new Set();
+function _isolationConnected(rootId,depth){
+  depth=(depth==null)?isolationDepth:Math.max(0,depth|0);
+  const set=new Set([rootId]);if(depth===0)return set;
+  let frontier=new Set([rootId]);
+  for(let d=0;d<depth;d++){
+    const next=new Set();
+    edgeObjs.forEach(l=>{const s=l.userData.srcId,t=l.userData.tgtId;
+      if(frontier.has(s)&&!set.has(t)){next.add(t);set.add(t);}
+      else if(frontier.has(t)&&!set.has(s)){next.add(s);set.add(s);}});
+    arrowObjs.forEach(a=>{
+      if(frontier.has(a.srcId)&&!set.has(a.tgtId)){next.add(a.tgtId);set.add(a.tgtId);}
+      else if(frontier.has(a.tgtId)&&!set.has(a.srcId)){next.add(a.srcId);set.add(a.srcId);}});
+    if(next.size===0)break;
+    frontier=next;
+  }
   return set;}
+// Toggle the dashed leader, surface pin, and orbital trail that tether a node to the map/grid
+// floor. Called whenever node visibility changes (isolation, search) so the leftover stub
+// lines don't dangle when the node itself is hidden.
+function _setNodeAttachVisibility(id,v){
+  if(mapView&&mapView.leaders){const ld=mapView.leaders[id];if(ld)ld.visible=v;}
+  if(mapView&&mapView.pins){const p=mapView.pins[id];if(p&&p.mesh)p.mesh.visible=v;}
+  if(typeof orbitState!=='undefined'&&orbitState.trails){const t=orbitState.trails[id];if(t&&t.line)t.line.visible=v;}
+}
 function applyIsolation(){
   if(!isolatedRoot){
-    nodeMeshes.forEach(m=>m.visible=true);
+    nodeMeshes.forEach(m=>{m.visible=true;_setNodeAttachVisibility(m.userData.id,true);});
     edgeObjs.forEach(l=>{l.visible=true;if(l.userData.labelSprite)l.userData.labelSprite.visible=true;});
     arrowObjs.forEach(a=>{if(a.line)a.line.visible=true;if(a.head)a.head.visible=true;if(a.labelSprite)a.labelSprite.visible=true;});
     if(typeof calloutObjs!=='undefined')calloutObjs.forEach(o=>{if(o.leader)o.leader.visible=dpVisible;if(o.label)o.label.visible=dpVisible;});
-    return;
+    _updateDepthDial();return;
   }
-  const c=_isolationConnected(isolatedRoot);
-  nodeMeshes.forEach(m=>m.visible=c.has(m.userData.id));
+  const c=_isolationConnected(isolatedRoot,isolationDepth);
+  nodeMeshes.forEach(m=>{const v=c.has(m.userData.id);m.visible=v;_setNodeAttachVisibility(m.userData.id,v);});
   edgeObjs.forEach(l=>{const v=c.has(l.userData.srcId)&&c.has(l.userData.tgtId);l.visible=v;if(l.userData.labelSprite)l.userData.labelSprite.visible=v;});
   arrowObjs.forEach(a=>{const v=c.has(a.srcId)&&c.has(a.tgtId);if(a.line)a.line.visible=v;if(a.head)a.head.visible=v;if(a.labelSprite)a.labelSprite.visible=v;});
   if(typeof calloutObjs!=='undefined')calloutObjs.forEach(o=>{const v=c.has(o.nodeId)&&dpVisible;if(o.leader)o.leader.visible=v;if(o.label)o.label.visible=v;});
+  _updateDepthDial();
+}
+const MAX_NEIGHBORHOOD_DEPTH=5;
+// Dial is a 5-stop arc, with depth 1 at +30° (1 o'clock) and depth 5 at -30° (11 o'clock),
+// stepping 15° per level so the needle sweeps left as the BFS depth grows.
+function _depthAngleDeg(d){return 30-(Math.max(1,Math.min(MAX_NEIGHBORHOOD_DEPTH,d))-1)*15;}
+(function _renderDepthTicks(){
+  const g=document.getElementById('depth-ticks');if(!g)return;
+  const r=33;let html='';
+  for(let d=1;d<=MAX_NEIGHBORHOOD_DEPTH;d++){
+    const a=_depthAngleDeg(d)*Math.PI/180;
+    const x=r*Math.sin(a),y=-r*Math.cos(a);
+    html+=`<text x='${x.toFixed(2)}' y='${y.toFixed(2)}'>${d}</text>`;
+  }
+  g.innerHTML=html;
+})();
+function _updateDepthDial(){
+  const dial=document.getElementById('depth-dial');if(!dial)return;
+  if(!isolatedRoot){dial.classList.remove('active');return;}
+  dial.classList.add('active');
+  const visD=Math.min(Math.max(isolationDepth,1),MAX_NEIGHBORHOOD_DEPTH);
+  const num=document.getElementById('depth-num');
+  if(num)num.textContent=String(visD);
+  const needle=document.getElementById('depth-needle');
+  if(needle)needle.setAttribute('transform','rotate('+_depthAngleDeg(visD).toFixed(2)+')');
 }
 function nodeFromHit(o){while(o){if(o.userData&&o.userData.id&&o.userData.type)return o;o=o.parent;}return null;}
 function screenToRay(e){mouse.x=(e.clientX/innerWidth)*2-1;mouse.y=-(e.clientY/innerHeight)*2+1;raycaster.setFromCamera(mouse,camera);}
@@ -652,6 +771,7 @@ function endDrag(e){if(dragging){dragging=null;ctrl.enabled=true;canvas.style.cu
 canvas.addEventListener('pointerup',endDrag);canvas.addEventListener('pointercancel',endDrag);
 
 function updateEdgesFor(id){
+  if(mapView.active)_updateMapLeader(id);
   edgeObjs.forEach(l=>{if(l.userData.srcId===id||l.userData.tgtId===id){
     const s=nodeMeshes.find(m=>m.userData.id===l.userData.srcId),t=nodeMeshes.find(m=>m.userData.id===l.userData.tgtId);
     if(s&&t){const pos=l.geometry.attributes.position;pos.setXYZ(0,s.position.x,s.position.y,s.position.z);pos.setXYZ(1,t.position.x,t.position.y,t.position.z);pos.needsUpdate=true;
@@ -671,22 +791,27 @@ canvas.addEventListener('mousemove',e=>{
   if(hits.length&&hits[0].object.userData.id){const d=hits[0].object.userData;
     tt.style.display='block';tt.style.left=(e.clientX+14)+'px';tt.style.top=(e.clientY+14)+'px';
     document.getElementById('ttn').textContent=d.label;document.getElementById('ttt').textContent=d.type;
-    const tlEl=document.getElementById('ttl');if(tlEl)tlEl.textContent=O.labels[d.id]||'';
     document.getElementById('ttu').textContent=d.uri||d.id;
     const tcEl=document.getElementById('ttc');if(tcEl)tcEl.textContent=O.comments[d.id]||'';
     const cE=edgeObjs.filter(e2=>e2.userData.srcId===d.id||e2.userData.tgtId===d.id).map(e2=>({s:e2.userData.srcId,t:e2.userData.tgtId,l:e2.userData.label}));
     const cA=arrowObjs.filter(a=>a.srcId===d.id||a.tgtId===d.id).map(a=>({s:a.srcId,t:a.tgtId,l:a.label}));
     const conns=[...cE,...cA];
-    const connRows=conns.map(c=>{const o=c.s===d.id?c.t:c.s;return(c.l||'?')+' \u2192 '+o;});
-    const dpC=(dpByClass[d.id]||[]).map(dp=>dp.name+(dp.range?' : '+dp.range:''));
-    const dpI=(dpByIndiv[d.id]||[]).map(dp=>dp.name+' = "'+dp.value+'"');
-    document.getElementById('ttp').innerHTML=[...connRows,...dpC,...dpI].join('<br>')||'No connections';
+    const _esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const connRows=conns.map(c=>{const o=c.s===d.id?c.t:c.s;return _esc((c.l||'?')+' \u2192 '+o);});
+    const dpC=(dpByClass[d.id]||[]).map(dp=>_esc(dp.name+(dp.range?' : '+dp.range:'')));
+    const dpI=(dpByIndiv[d.id]||[]).map(dp=>_esc(dp.name+' = "'+dp.value+'"'));
+    const lbl=O.labels[d.id]||'';
+    const lblBar=lbl?`<div class='dp-titlebar'>rdfs:label = "${_esc(lbl)}"</div>`:'';
+    const dpRowsHTML=[...dpC,...dpI].map(r=>`<div class='dp-row'>${r}</div>`).join('');
+    const dpBlock=(lblBar||dpRowsHTML)?`<div class='dp-table'>${lblBar}${dpRowsHTML}</div>`:'';
+    const connHTML=connRows.join('<br>');
+    document.getElementById('ttp').innerHTML=(connHTML+dpBlock)||'No connections';
     if(hovered&&hovered!==hits[0].object)hovered.material.color.setHex(0xffffff);
     hovered=hits[0].object;hovered.material.color.setHex(0xf0f0f0);
   }else{if(hovered)hovered.material.color.setHex(0xffffff);hovered=null;tt.style.display='none';}});
 
 document.getElementById('search').addEventListener('input',e=>{const q=e.target.value.toLowerCase();
-  nodeMeshes.forEach(m=>{m.visible=!q||m.userData.label.toLowerCase().includes(q)||m.userData.id.toLowerCase().includes(q);});
+  nodeMeshes.forEach(m=>{const v=!q||m.userData.label.toLowerCase().includes(q)||m.userData.id.toLowerCase().includes(q);m.visible=v;_setNodeAttachVisibility(m.userData.id,v);});
   edgeObjs.forEach(l=>{const sv=nodeMeshes.find(m=>m.userData.id===l.userData.srcId)?.visible;
     const tv=nodeMeshes.find(m=>m.userData.id===l.userData.tgtId)?.visible;l.visible=!q||(sv&&tv);
     if(l.userData.labelSprite)l.userData.labelSprite.visible=l.visible;});
@@ -715,8 +840,35 @@ function selectionPulse(){
     if(a===selectedLine)a.line.material.color.copy(BASE_ECOL).lerp(YEL_COL,blend);
     else if(selectedRoot&&(a.srcId===selectedRoot||a.tgtId===selectedRoot))a.line.material.color.copy(BASE_ECOL).lerp(HI_COL,blend);
     else a.line.material.color.setHex(orig);});}
-function animate(){requestAnimationFrame(animate);nodeMeshes.forEach(m=>m.quaternion.copy(camera.quaternion));arrowObjs.forEach(updateArrowRot);selectionPulse();updateLabelScales();animateInferred(performance.now());ctrl.update();renderer.render(scene,camera);}
+// Hoisted state for map/orbit modules so the animate loop (which calls _orbitTick) doesn't hit TDZ on first frame.
+let mapView={active:false,group:null,ctx:null,leaders:{},pins:{}};
+let orbitState={satrecs:{},trails:{},lastTick:0,tickInterval:1000};
+const TRAIL_MAX=60;
+// Populate sidebar edge filter checkboxes (one per distinct predicate label). Generic — works for any ontology.
+function populateEdgeFilter(){
+  const panel=document.getElementById('edge-filter-panel');if(!panel)return;
+  const labels=new Set();
+  edgeObjs.forEach(e=>{if(e.userData&&e.userData.label)labels.add(e.userData.label);});
+  arrowObjs.forEach(a=>{if(a.label)labels.add(a.label);});
+  if(O.sub&&O.sub.length)labels.add('subClassOf');
+  if(O.typ&&O.typ.length)labels.add('rdf:type');
+  const arr=[...labels].filter(l=>l).sort();
+  if(!arr.length){panel.innerHTML='<div class="sub">No edges</div>';return;}
+  panel.innerHTML='';
+  arr.forEach(lbl=>{
+    const row=document.createElement('label');row.style.cssText='display:flex;align-items:center;gap:6px;padding:2px 4px;cursor:pointer;font-size:10px;color:#555;user-select:none';
+    const cb=document.createElement('input');cb.type='checkbox';cb.checked=true;
+    const txt=document.createElement('span');txt.textContent=lbl;txt.style.flex='1';
+    row.appendChild(cb);row.appendChild(txt);panel.appendChild(row);
+    cb.addEventListener('change',e=>{const v=e.target.checked;
+      edgeObjs.forEach(eo=>{if(eo.userData&&eo.userData.label===lbl){eo.visible=v;if(eo.userData.labelSprite)eo.userData.labelSprite.visible=v;}});
+      arrowObjs.forEach(a=>{if(a.label===lbl){if(a.line)a.line.visible=v;if(a.head)a.head.visible=v;if(a.labelSprite)a.labelSprite.visible=v;}});
+    });
+  });
+}
+function animate(){requestAnimationFrame(animate);nodeMeshes.forEach(m=>m.quaternion.copy(camera.quaternion));arrowObjs.forEach(updateArrowRot);selectionPulse();updateLabelScales();animateInferred(performance.now());_orbitTick(performance.now());_maybeUpdateGlobeLOD(performance.now());ctrl.update();renderer.render(scene,camera);}
 animate();
+populateEdgeFilter();
 
 let dpVisible=true;
 function setDPVisibility(v){dpVisible=v;calloutObjs.forEach(o=>{
@@ -729,6 +881,23 @@ window.addEventListener('keydown',e=>{
   const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'))return;
   if(e.key==='d'||e.key==='D'){e.preventDefault();setDPVisibility(!dpVisible);}
   else if(e.key==='Escape'&&isolatedRoot){isolatedRoot=null;applyIsolation();selectedRoot=null;selectedLine=null;updateSelection();}
+  else if(e.key===']'){
+    // Bracket expand: promote selected node to isolation root if needed, then grow BFS depth.
+    const root=isolatedRoot||selectedRoot;if(!root)return;
+    e.preventDefault();
+    if(!isolatedRoot){isolatedRoot=root;isolationDepth=1;}
+    else{isolationDepth=Math.min(MAX_NEIGHBORHOOD_DEPTH,isolationDepth+1);}
+    selectedRoot=isolatedRoot;selectedLine=null;updateSelection();applyIsolation();
+  }
+  else if(e.key==='['&&isolatedRoot){e.preventDefault();isolationDepth=Math.max(1,isolationDepth-1);applyIsolation();}
+  else if(/^[1-5]$/.test(e.key)){
+    // Direct depth keys: 1..5 set BFS depth on the picked node, activating isolation if it wasn't already.
+    const root=isolatedRoot||selectedRoot;if(!root)return;
+    e.preventDefault();
+    const d=parseInt(e.key,10);
+    isolatedRoot=root;isolationDepth=Math.min(MAX_NEIGHBORHOOD_DEPTH,Math.max(1,d));
+    selectedRoot=isolatedRoot;selectedLine=null;updateSelection();applyIsolation();
+  }
 });
 
 function applyPositions(){Object.keys(nodeMap).forEach(id=>{const m=nodeMeshes.find(m=>m.userData.id===id);if(m)m.position.set(nodeMap[id].x,nodeMap[id].y,nodeMap[id].z);});
@@ -959,16 +1128,664 @@ function clearReasoning(){
   _inferred.arrows=[];_inferred.lines=[];
 }
 
+// ---- Map view: pin geo nodes via Web Mercator + force-direct non-geo nodes above the tile plane ----
+function _propagateOrbit(rec,date){
+  let r;try{r=satellite.propagate(rec,date);}catch(e){return null;}
+  if(!r||!r.position||isNaN(r.position.x))return null;
+  const gmst=satellite.gstime(date);
+  const geo=satellite.eciToGeodetic(r.position,gmst);
+  const lat=geo.latitude*180/Math.PI,lon=geo.longitude*180/Math.PI;
+  if(!isFinite(lat)||!isFinite(lon))return null;
+  return{lat,lon,alt:geo.height};
+}
+function _orbitTick(now){
+  if(!mapView.active)return;
+  if(now-orbitState.lastTick<orbitState.tickInterval)return;
+  orbitState.lastTick=now;
+  const date=new Date(),ctx=mapView.ctx;if(!ctx)return;
+  const isGlobe=mapView.mode==='globe';
+  Object.entries(orbitState.satrecs).forEach(([id,rec])=>{
+    const pos=_propagateOrbit(rec,date);if(!pos)return;
+    let nx,ny,nz,surfPt,trailPt;
+    if(isGlobe){
+      const R=ctx.R;
+      const altScale=Math.min(15,Math.max(1,pos.alt/200));
+      surfPt=_latLonToSphere(pos.lat,pos.lon,R+0.05);
+      const nodePt=_latLonToSphere(pos.lat,pos.lon,R+altScale);
+      nx=nodePt.x;ny=nodePt.y;nz=nodePt.z;
+      trailPt=_latLonToSphere(pos.lat,pos.lon,R+0.08);
+    }else{
+      if(pos.lat<-85||pos.lat>85)return; // skip Mercator singularity
+      const p=_projectGeo(pos.lat,pos.lon,ctx);
+      nx=p.x;ny=5+Math.max(-2,Math.min(10,(pos.alt-300)/80));nz=p.z;
+      trailPt=new THREE.Vector3(p.x,-8.81,p.z);
+    }
+    const pin=mapView.pins[id];
+    if(pin){
+      if(isGlobe&&surfPt){pin.surfPt=surfPt;if(pin.mesh)pin.mesh.position.copy(surfPt);}
+      else{pin.x=nx;pin.z=nz;if(pin.mesh)pin.mesh.position.set(nx,-8.85,nz);}
+    }
+    const nodeMesh=nodeMeshes.find(m=>m.userData.id===id);
+    if(nodeMesh)nodeMesh.position.set(nx,ny,nz);
+    if(nodeMap[id]){nodeMap[id].x=nx;nodeMap[id].y=ny;nodeMap[id].z=nz;}
+    _updateMapLeader(id);
+    const tl=orbitState.trails[id];
+    if(tl){
+      tl.points.push(trailPt);
+      if(tl.points.length>TRAIL_MAX)tl.points.shift();
+      tl.geometry.dispose();
+      tl.line.geometry=new THREE.BufferGeometry().setFromPoints(tl.points);
+      tl.geometry=tl.line.geometry;
+    }
+    updateEdgesFor(id);
+  });
+}
+function _lonToTileX(lon,z){return ((lon+180)/360)*Math.pow(2,z);}
+function _latToTileY(lat,z){return ((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2)*Math.pow(2,z);}
+function _pickZoom(minLat,maxLat,minLon,maxLon){
+  for(let z=10;z>=2;z--){
+    const xs=_lonToTileX(maxLon,z)-_lonToTileX(minLon,z);
+    const ys=_latToTileY(minLat,z)-_latToTileY(maxLat,z);
+    if(xs<=4&&ys<=4)return z;
+  }
+  return 2;
+}
+function _buildMapPlane(ctx){
+  const group=new THREE.Group();
+  const loader=new THREE.TextureLoader();loader.setCrossOrigin('anonymous');
+  const nTiles=Math.pow(2,ctx.z);
+  for(let xt=ctx.xt0;xt<=ctx.xt1;xt++){
+    if(xt<0||xt>=nTiles)continue;
+    for(let yt=ctx.yt0;yt<=ctx.yt1;yt++){
+      if(yt<0||yt>=nTiles)continue;
+      const u0=(xt-ctx.x0)/(ctx.x1-ctx.x0),u1=(xt+1-ctx.x0)/(ctx.x1-ctx.x0);
+      const v0=(yt-ctx.y0)/(ctx.y1-ctx.y0),v1=(yt+1-ctx.y0)/(ctx.y1-ctx.y0);
+      const wx=((u0+u1)/2-0.5)*ctx.planeW,wz=((v0+v1)/2-0.5)*ctx.planeH;
+      const tw=(u1-u0)*ctx.planeW,th=(v1-v0)*ctx.planeH;
+      const mat=new THREE.MeshBasicMaterial({color:0xe0e0e0,side:THREE.DoubleSide,transparent:true,opacity:0.92});
+      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(tw,th),mat);
+      mesh.rotation.x=-Math.PI/2;mesh.position.set(wx,-9,wz);group.add(mesh);
+      // Carto Positron (light_all) — minimal white/grey basemap. Subdomain rotation for parallel fetch.
+      const sub='abcd'[(xt+yt)%4];
+      const url='https://'+sub+'.basemaps.cartocdn.com/light_all/'+ctx.z+'/'+xt+'/'+yt+'.png';
+      loader.load(url,tex=>{mat.map=tex;mat.color.setHex(0xffffff);mat.needsUpdate=true;},undefined,()=>{});
+    }
+  }
+  const grid=new THREE.GridHelper(Math.max(ctx.planeW,ctx.planeH)*1.05,12,0x99aacc,0xccd6e8);
+  grid.material.transparent=true;grid.material.opacity=0.35;grid.position.y=-8.9;group.add(grid);
+  return group;
+}
+function _projectGeo(lat,lon,ctx){
+  const tx=_lonToTileX(lon,ctx.z),ty=_latToTileY(lat,ctx.z);
+  const u=(tx-ctx.x0)/(ctx.x1-ctx.x0),v=(ty-ctx.y0)/(ctx.y1-ctx.y0);
+  return{x:(u-0.5)*ctx.planeW,z:(v-0.5)*ctx.planeH};
+}
+function mapLayout(){
+  const geoNodes=(O.geo&&O.geo.nodes)||[];
+  const sats=O.satellites||[];
+  // Pre-propagate satellite initial positions so bbox encloses them too
+  const _initSatLatLons=[];
+  if(window.satellite){
+    const _now=new Date();
+    sats.forEach(s=>{let rec;try{rec=satellite.twoline2satrec(s.tle1,s.tle2);}catch(e){return;}if(rec.error!==0)return;const pos=_propagateOrbit(rec,_now);if(pos)_initSatLatLons.push(pos);});
+  }
+  if(!geoNodes.length&&!_initSatLatLons.length)return false;
+  let minLat=90,maxLat=-90,minLon=180,maxLon=-180;
+  geoNodes.forEach(n=>{minLat=Math.min(minLat,n.lat);maxLat=Math.max(maxLat,n.lat);minLon=Math.min(minLon,n.lon);maxLon=Math.max(maxLon,n.lon);});
+  _initSatLatLons.forEach(p=>{minLat=Math.min(minLat,p.lat);maxLat=Math.max(maxLat,p.lat);minLon=Math.min(minLon,p.lon);maxLon=Math.max(maxLon,p.lon);});
+  // For orbit-heavy ontologies, widen the bbox to give satellites room to traverse
+  if(_initSatLatLons.length){minLat=Math.max(-70,minLat-20);maxLat=Math.min(70,maxLat+20);minLon=Math.max(-180,minLon-40);maxLon=Math.min(180,maxLon+40);}
+  const padLat=Math.max(0.5,(maxLat-minLat)*0.2),padLon=Math.max(0.5,(maxLon-minLon)*0.2);
+  // Clamp to Web Mercator safe range (±85°lat / ±180°lon) — lat near ±90° breaks log(tan()) → NaN propagation.
+  minLat=Math.max(-85,minLat-padLat);maxLat=Math.min(85,maxLat+padLat);
+  minLon=Math.max(-180,minLon-padLon);maxLon=Math.min(180,maxLon+padLon);
+  const z=_pickZoom(minLat,maxLat,minLon,maxLon);
+  const x0=_lonToTileX(minLon,z),x1=_lonToTileX(maxLon,z),y0=_latToTileY(maxLat,z),y1=_latToTileY(minLat,z);
+  const planeW=50,planeH=planeW*((y1-y0)/(x1-x0));
+  const ctx={z,x0,x1,y0,y1,xt0:Math.floor(x0),xt1:Math.floor(x1),yt0:Math.floor(y0),yt1:Math.floor(y1),planeW,planeH};
+  _disposeMapGroup();
+  mapView.group=_buildMapPlane(ctx);scene.add(mapView.group);
+  mapView.ctx=ctx;mapView.active=true;mapView.mode='map';floorGrid.visible=false;
+  const geoIds=new Set();
+  const NODE_Y=5,PIN_Y=-8.85;
+  geoNodes.forEach(n=>{
+    geoIds.add(n.id);
+    const p=_projectGeo(n.lat,n.lon,ctx);
+    nodeMap[n.id]={x:p.x,y:NODE_Y,z:p.z};
+    // Location pin: small filled disk flush with the map plane
+    const pinMat=new THREE.MeshBasicMaterial({color:0x1c4f99,side:THREE.DoubleSide});
+    const pin=new THREE.Mesh(new THREE.CircleGeometry(0.32,24),pinMat);
+    pin.rotation.x=-Math.PI/2;pin.position.set(p.x,PIN_Y,p.z);mapView.group.add(pin);
+    // Dashed leader: pin → node (registered so node drag can refresh it)
+    const ldGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(p.x,PIN_Y+0.02,p.z),new THREE.Vector3(p.x,NODE_Y-0.6,p.z)]);
+    const ldMat=new THREE.LineDashedMaterial({color:0x6a8cb6,dashSize:0.32,gapSize:0.22,linewidth:1});
+    const lead=new THREE.Line(ldGeo,ldMat);lead.computeLineDistances();mapView.group.add(lead);
+    mapView.leaders[n.id]=lead;mapView.pins[n.id]={x:p.x,z:p.z,mesh:pin};
+  });
+  // Satellites: register pin/leader/trail like geo but red-toned and animated. Re-uses `sats` from bbox prepass.
+  const _now=new Date();
+  orbitState.satrecs={};orbitState.trails={};
+  sats.forEach(s=>{
+    if(!window.satellite)return;
+    let rec;try{rec=satellite.twoline2satrec(s.tle1,s.tle2);}catch(e){return;}
+    if(rec.error!==0)return;
+    const pos=_propagateOrbit(rec,_now);if(!pos)return;
+    orbitState.satrecs[s.id]=rec;
+    geoIds.add(s.id);
+    const p=_projectGeo(pos.lat,pos.lon,ctx);
+    const ny=5+Math.max(-2,Math.min(10,(pos.alt-300)/80));
+    nodeMap[s.id]={x:p.x,y:ny,z:p.z};
+    const pinMat=new THREE.MeshBasicMaterial({color:0xc62828,side:THREE.DoubleSide});
+    const pinMesh=new THREE.Mesh(new THREE.CircleGeometry(0.32,24),pinMat);
+    pinMesh.rotation.x=-Math.PI/2;pinMesh.position.set(p.x,PIN_Y,p.z);mapView.group.add(pinMesh);
+    const ldGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(p.x,PIN_Y+0.02,p.z),new THREE.Vector3(p.x,ny-0.6,p.z)]);
+    const ldMat=new THREE.LineDashedMaterial({color:0xd68080,dashSize:0.32,gapSize:0.22,linewidth:1});
+    const lead=new THREE.Line(ldGeo,ldMat);lead.computeLineDistances();mapView.group.add(lead);
+    mapView.leaders[s.id]=lead;mapView.pins[s.id]={x:p.x,z:p.z,mesh:pinMesh,isSat:true};
+    // Trail: thin line that grows over time, capped at TRAIL_MAX points
+    const tlGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(p.x,PIN_Y+0.04,p.z)]);
+    const tlMat=new THREE.LineBasicMaterial({color:0xc62828,transparent:true,opacity:0.55});
+    const tl=new THREE.Line(tlGeo,tlMat);tl.frustumCulled=false;mapView.group.add(tl);
+    orbitState.trails[s.id]={points:[new THREE.Vector3(p.x,PIN_Y+0.04,p.z)],line:tl,geometry:tlGeo};
+  });
+  const allIds=[...O.cls.map(c=>c.id),...O.ind.map(i=>i.id)].filter(id=>nodeMap[id]||true);
+  const movable=allIds.filter(id=>!geoIds.has(id));
+  movable.forEach((id,i)=>{const a=i/Math.max(1,movable.length)*Math.PI*2;const r=Math.max(planeW,planeH)*0.6;nodeMap[id]={x:Math.cos(a)*r,y:NODE_Y,z:Math.sin(a)*r};});
+  const edges=[];O.sub.forEach(([a,b])=>edges.push([a,b]));O.typ.forEach(([a,b])=>edges.push([a,b]));O.rel.forEach(r=>edges.push([r.s,r.o]));
+  for(let it=0;it<150;it++){
+    const fx={},fz={};movable.forEach(id=>{fx[id]=0;fz[id]=0;});
+    for(let i=0;i<allIds.length;i++){const a=allIds[i],pa=nodeMap[a];if(!pa)continue;
+      for(let j=0;j<allIds.length;j++){if(i===j)continue;const b=allIds[j];if(geoIds.has(b))continue;const pb=nodeMap[b];if(!pb)continue;
+        const dx=pb.x-pa.x,dz=pb.z-pa.z;const d2=dx*dx+dz*dz+0.1;const d=Math.sqrt(d2);const f=90/d2;
+        fx[b]+=dx/d*f;fz[b]+=dz/d*f;}}
+    edges.forEach(([a,b])=>{const pa=nodeMap[a],pb=nodeMap[b];if(!pa||!pb)return;
+      const dx=pb.x-pa.x,dz=pb.z-pa.z;const d=Math.sqrt(dx*dx+dz*dz)||0.01;const f=(d-5)*0.04;
+      if(!geoIds.has(a)){fx[a]+=dx/d*f;fz[a]+=dz/d*f;}
+      if(!geoIds.has(b)){fx[b]-=dx/d*f;fz[b]-=dz/d*f;}});
+    const damp=Math.max(0.3,1-it/150);
+    movable.forEach(id=>{nodeMap[id].x+=fx[id]*0.1*damp;nodeMap[id].z+=fz[id]*0.1*damp;});
+  }
+  applyPositions();
+  const fitR=Math.max(planeW,planeH)*0.95;camera.position.set(0,fitR*0.85,fitR);ctrl.target.set(0,0,0);
+  const _ma=document.getElementById('map-attrib');if(_ma)_ma.style.display='block';
+  return true;
+}
+function _disposeMapGroup(){
+  if(!mapView.group)return;
+  scene.remove(mapView.group);
+  mapView.group.traverse(o=>{
+    if(o.geometry)o.geometry.dispose();
+    if(o.material){
+      // Preserve textures owned by _tileCache (LOD chunks have userData.chunkKey).
+      if(o.userData&&o.userData.chunkKey){o.material.map=null;o.material.dispose();}
+      else{if(o.material.map)o.material.map.dispose();o.material.dispose();}
+    }
+  });
+  mapView.group=null;mapView.leaders={};mapView.pins={};
+  orbitState.satrecs={};orbitState.trails={};
+  _activeChunks.clear();
+}
+// "east-on-right" convention: lon=0 at -x, lon=+90 at +z. Visible from +z camera with Asia on screen-right when looking at the +x,+z octant.
+function _latLonToSphere(lat,lon,R){const latR=lat*Math.PI/180,lonR=lon*Math.PI/180;return new THREE.Vector3(-R*Math.cos(latR)*Math.cos(lonR),R*Math.sin(latR),R*Math.cos(latR)*Math.sin(lonR));}
+// Mercator UV: rewrite a SphereGeometry's UV so v=latitude-as-mercator, u matches east-on-right sphere convention (uses atan2(z,-x)).
+function _applyMercatorUV(geo,R){
+  const uvAttr=geo.attributes.uv,posAttr=geo.attributes.position;
+  const maxLatR=85*Math.PI/180;
+  for(let i=0;i<posAttr.count;i++){
+    const x=posAttr.getX(i),y=posAttr.getY(i),z=posAttr.getZ(i);
+    const lat=Math.asin(Math.max(-1,Math.min(1,y/R)));
+    const lon=Math.atan2(z,-x);
+    const u=(lon/Math.PI+1)/2;
+    const latC=Math.max(-maxLatR,Math.min(maxLatR,lat));
+    const v=(1-Math.log(Math.tan(Math.PI/4+latC/2))/Math.PI)/2;
+    uvAttr.setXY(i,u,v);
+  }
+  uvAttr.needsUpdate=true;
+}
+// Fetch Carto Positron z=2 tile composite (4x4 = 16 tiles → 1024x1024 Mercator world) as a THREE texture.
+function _buildMercatorTexture(){
+  return new Promise(resolve=>{
+    const z=2,n=4,ts=256;
+    const cv=document.createElement('canvas');cv.width=cv.height=n*ts;
+    const cx=cv.getContext('2d');cx.fillStyle='#f0f0f0';cx.fillRect(0,0,cv.width,cv.height);
+    let pending=n*n,done=false;
+    const finish=()=>{if(done)return;done=true;const tex=new THREE.CanvasTexture(cv);tex.flipY=false;tex.wrapS=THREE.RepeatWrapping;tex.needsUpdate=true;resolve(tex);};
+    for(let tx=0;tx<n;tx++)for(let ty=0;ty<n;ty++){
+      const img=new Image();img.crossOrigin='anonymous';
+      img.onload=()=>{try{cx.drawImage(img,tx*ts,ty*ts);}catch(e){}pending--;if(pending===0)finish();};
+      img.onerror=()=>{pending--;if(pending===0)finish();};
+      const sub='abcd'[(tx+ty)%4];
+      img.src='https://'+sub+'.basemaps.cartocdn.com/light_all/'+z+'/'+tx+'/'+ty+'.png';
+    }
+    setTimeout(finish,8000);
+  });
+}
+// === Chunked LOD globe (visible-region tile pyramid, Carto Positron z=2..6) ===
+const _tileCache=new Map();const _activeChunks=new Map();const _MAX_Z=6;
+let _lastLODUpdate=0;const _lastCamPos=new THREE.Vector3(99999,0,0);
+function _tileBounds(z,x,y){
+  const n=Math.pow(2,z);
+  const lon0=x/n*360-180,lon1=(x+1)/n*360-180;
+  const lat1=Math.atan(Math.sinh(Math.PI*(1-2*y/n)))*180/Math.PI;
+  const lat0=Math.atan(Math.sinh(Math.PI*(1-2*(y+1)/n)))*180/Math.PI;
+  return{lon0,lon1,lat0,lat1};
+}
+function _buildTileChunkGeo(z,x,y,R){
+  const sub=8,n=Math.pow(2,z);
+  const positions=[],uvs=[],indices=[];
+  for(let i=0;i<=sub;i++)for(let j=0;j<=sub;j++){
+    const uu=j/sub,vv=i/sub;
+    const xM=x+uu,yM=y+vv;
+    const lon=xM/n*360-180;
+    const lat=Math.atan(Math.sinh(Math.PI*(1-2*yM/n)))*180/Math.PI;
+    const p=_latLonToSphere(lat,lon,R);
+    positions.push(p.x,p.y,p.z);uvs.push(uu,vv);
+  }
+  for(let i=0;i<sub;i++)for(let j=0;j<sub;j++){
+    const a=i*(sub+1)+j,b=a+1,c=a+sub+1,d=c+1;
+    indices.push(a,c,b,b,c,d);
+  }
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
+  geo.setIndex(indices);
+  return geo;
+}
+function _fetchTile(z,x,y){
+  const key=z+'/'+x+'/'+y;
+  if(_tileCache.has(key)){const t=_tileCache.get(key);_tileCache.delete(key);_tileCache.set(key,t);return Promise.resolve(t);}
+  return new Promise(resolve=>{
+    const img=new Image();img.crossOrigin='anonymous';let done=false;
+    img.onload=()=>{if(done)return;done=true;
+      const tex=new THREE.Texture(img);tex.flipY=false;tex.needsUpdate=true;
+      if(_tileCache.size>=300){const oldKey=_tileCache.keys().next().value;const oldTex=_tileCache.get(oldKey);if(oldTex&&oldTex.image)oldTex.dispose();_tileCache.delete(oldKey);}
+      _tileCache.set(key,tex);resolve(tex);
+    };
+    img.onerror=()=>{if(!done){done=true;resolve(null);}};
+    const sub='abcd'[(x+y)%4];
+    img.src='https://'+sub+'.basemaps.cartocdn.com/light_all/'+z+'/'+x+'/'+y+'.png';
+  });
+}
+function _chooseTilesForView(R){
+  const visible=[];
+  const camPos=camera.position.clone();
+  const fovRad=camera.fov*Math.PI/180;
+  function recurse(z,x,y){
+    const b=_tileBounds(z,x,y);
+    const lonC=(b.lon0+b.lon1)/2,latC=(b.lat0+b.lat1)/2;
+    const center=_latLonToSphere(latC,lonC,R);
+    const toCam=camPos.clone().sub(center).normalize();
+    const tileNormal=center.clone().normalize();
+    // Cull threshold scales with tile half-angle so a coarse tile (z=2, 90° wide) isn't dropped when only its center is back-facing — children at finer z handle precise culling.
+    const tileHalfAngle=Math.PI/Math.pow(2,z+1);
+    const cullThresh=-Math.min(0.7,tileHalfAngle*1.5);
+    if(toCam.dot(tileNormal)<cullThresh)return;
+    const distance=Math.max(0.001,camPos.distanceTo(center));
+    const tileEdge=R*Math.PI/Math.pow(2,z);
+    const screenSize=(tileEdge/distance)/fovRad*window.innerHeight;
+    if(screenSize>220&&z<_MAX_Z){for(let i=0;i<2;i++)for(let j=0;j<2;j++)recurse(z+1,x*2+i,y*2+j);}
+    else visible.push({z,x,y});
+  }
+  for(let x=0;x<4;x++)for(let y=0;y<4;y++)recurse(2,x,y);
+  return visible;
+}
+function _updateGlobeLOD(){
+  if(!mapView.active||mapView.mode!=='globe')return;
+  const R=mapView.ctx.R;
+  const desired=_chooseTilesForView(R);
+  const desiredKeys=new Set(desired.map(t=>t.z+'/'+t.x+'/'+t.y));
+  for(const [key,mesh] of [..._activeChunks]){
+    if(!desiredKeys.has(key)){
+      mapView.group.remove(mesh);
+      mesh.geometry.dispose();
+      if(mesh.material){mesh.material.map=null;mesh.material.dispose();}
+      _activeChunks.delete(key);
+    }
+  }
+  desired.forEach(({z,x,y})=>{
+    const key=z+'/'+x+'/'+y;
+    if(_activeChunks.has(key))return;
+    const geo=_buildTileChunkGeo(z,x,y,R);
+    const mat=new THREE.MeshBasicMaterial({color:0xf0f0f0,transparent:true,opacity:0.7,side:THREE.FrontSide,depthWrite:false});
+    const mesh=new THREE.Mesh(geo,mat);
+    mesh.userData.chunkKey=key;mesh.renderOrder=-1;
+    mapView.group.add(mesh);_activeChunks.set(key,mesh);
+    _fetchTile(z,x,y).then(tex=>{
+      if(tex&&_activeChunks.get(key)===mesh&&mesh.parent){
+        mat.map=tex;mat.color.setHex(0xffffff);mat.needsUpdate=true;
+      }
+    });
+  });
+}
+function _maybeUpdateGlobeLOD(now){
+  if(!mapView.active||mapView.mode!=='globe')return;
+  if(now-_lastLODUpdate<250)return;
+  const moved=camera.position.distanceTo(_lastCamPos);
+  if(moved<1.5&&_activeChunks.size>0)return;
+  _lastLODUpdate=now;_lastCamPos.copy(camera.position);
+  _updateGlobeLOD();
+}
+function _updateMapLeader(id){
+  if(!mapView.active)return;
+  const lead=mapView.leaders[id],pin=mapView.pins[id],node=nodeMap[id];if(!lead||!pin||!node)return;
+  const pos=lead.geometry.attributes.position;
+  if(mapView.mode==='globe'&&pin.surfPt){
+    pos.setXYZ(0,pin.surfPt.x,pin.surfPt.y,pin.surfPt.z);
+    pos.setXYZ(1,node.x,node.y,node.z);
+  }else{
+    pos.setXYZ(0,pin.x,-8.83,pin.z);
+    pos.setXYZ(1,node.x,node.y-0.6,node.z);
+  }
+  pos.needsUpdate=true;lead.computeLineDistances();
+}
+function exitMapView(){if(!mapView.active)return;_disposeMapGroup();mapView.active=false;mapView.ctx=null;mapView.mode=null;floorGrid.visible=true;['bgeomap','bgeoglobe','bgrid'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active-map');});const a=document.getElementById('map-attrib');if(a)a.style.display='none';ctrl.minDistance=0;}
+
 function _setLayoutActive(id){['bh','bf','b2'].forEach(x=>{const el=document.getElementById(x);if(el)el.classList.toggle('active',x===id);});}
-document.getElementById('bf').addEventListener('click',()=>{setView2D(false);resetBends();forceLayout(400);_setLayoutActive('bf');});
-document.getElementById('bh').addEventListener('click',()=>{setView2D(false);resetBends();hierLayout();applyPositions();_setLayoutActive('bh');});
-const _b2=document.getElementById('b2');if(_b2)_b2.addEventListener('click',()=>{layout2DCurved();setView2D(true);_setLayoutActive('b2');});
-document.getElementById('br').addEventListener('click',()=>{setView2D(false);resetBends();camera.position.set(0,20,55);ctrl.target.set(0,0,0);document.getElementById('bh').click();});
+document.getElementById('bf').addEventListener('click',()=>{exitMapView();setView2D(false);resetBends();forceLayout(400);_setLayoutActive('bf');});
+document.getElementById('bh').addEventListener('click',()=>{exitMapView();setView2D(false);resetBends();hierLayout();applyPositions();_setLayoutActive('bh');});
+const _b2=document.getElementById('b2');if(_b2)_b2.addEventListener('click',()=>{exitMapView();layout2DCurved();setView2D(true);_setLayoutActive('b2');});
+document.getElementById('br').addEventListener('click',()=>{exitMapView();setView2D(false);resetBends();camera.position.set(0,20,55);ctrl.target.set(0,0,0);document.getElementById('bh').click();});
+function globeLayout(){
+  const geoNodes=(O.geo&&O.geo.nodes)||[];
+  const sats=O.satellites||[];
+  if(!geoNodes.length&&!sats.length)return false;
+  _disposeMapGroup();
+  mapView.group=new THREE.Group();scene.add(mapView.group);
+  mapView.active=true;mapView.mode='globe';floorGrid.visible=false;
+  const R=18;mapView.ctx={R};
+  // Inner faint base (visible if texture fails or while loading)
+  const baseMat=new THREE.MeshBasicMaterial({color:0xeaf2ff,transparent:true,opacity:0.22,side:THREE.DoubleSide});
+  const base=new THREE.Mesh(new THREE.SphereGeometry(R-0.05,48,48),baseMat);mapView.group.add(base);
+  // Chunked tile pyramid — visible-region LOD (Carto Positron, z=2..6). Initial population, then animate() loop refines.
+  _lastCamPos.set(99999,0,0);_lastLODUpdate=0;
+  _updateGlobeLOD();
+  // Prevent zooming inside the sphere (which would cull all tiles via backface)
+  ctrl.minDistance=R*1.08;
+  // Show OSM/Carto attribution while in globe mode
+  const _maG=document.getElementById('map-attrib');if(_maG)_maG.style.display='block';
+  // Graticule
+  const gratMat=new THREE.LineBasicMaterial({color:0xb8c8dc,transparent:true,opacity:0.55});
+  for(let lat=-75;lat<=75;lat+=15){const pts=[];for(let lon=-180;lon<=180;lon+=4)pts.push(_latLonToSphere(lat,lon,R+0.02));mapView.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),gratMat));}
+  for(let lon=-180;lon<180;lon+=30){const pts=[];for(let lat=-85;lat<=85;lat+=4)pts.push(_latLonToSphere(lat,lon,R+0.02));mapView.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),gratMat));}
+  // Equator + prime meridian (slightly bolder)
+  const boldMat=new THREE.LineBasicMaterial({color:0x8aa5c8,transparent:true,opacity:0.85});
+  {const pts=[];for(let lon=-180;lon<=180;lon+=2)pts.push(_latLonToSphere(0,lon,R+0.04));mapView.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),boldMat));}
+  {const pts=[];for(let lat=-88;lat<=88;lat+=2)pts.push(_latLonToSphere(lat,0,R+0.04));mapView.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),boldMat));}
+  // Pin static geo nodes on the sphere with radial leaders
+  const geoIds=new Set();const PIN_H=4;
+  geoNodes.forEach(n=>{
+    geoIds.add(n.id);
+    const surfPt=_latLonToSphere(n.lat,n.lon,R+0.05);
+    const nodePt=_latLonToSphere(n.lat,n.lon,R+PIN_H);
+    nodeMap[n.id]={x:nodePt.x,y:nodePt.y,z:nodePt.z};
+    const pin=new THREE.Mesh(new THREE.SphereGeometry(0.25,12,12),new THREE.MeshBasicMaterial({color:0x1c4f99}));
+    pin.position.copy(surfPt);mapView.group.add(pin);
+    const lead=new THREE.Line(new THREE.BufferGeometry().setFromPoints([surfPt.clone(),nodePt.clone()]),new THREE.LineDashedMaterial({color:0x6a8cb6,dashSize:0.32,gapSize:0.22}));
+    lead.computeLineDistances();mapView.group.add(lead);
+    mapView.leaders[n.id]=lead;mapView.pins[n.id]={surfPt:surfPt.clone(),mesh:pin};
+  });
+  // Satellites
+  orbitState.satrecs={};orbitState.trails={};
+  const _now=new Date();
+  sats.forEach(s=>{
+    if(!window.satellite)return;
+    let rec;try{rec=satellite.twoline2satrec(s.tle1,s.tle2);}catch(e){return;}
+    if(rec.error!==0)return;
+    const pos=_propagateOrbit(rec,_now);if(!pos)return;
+    orbitState.satrecs[s.id]=rec;geoIds.add(s.id);
+    const altScale=Math.min(15,Math.max(1,pos.alt/200));
+    const surfPt=_latLonToSphere(pos.lat,pos.lon,R+0.05);
+    const nodePt=_latLonToSphere(pos.lat,pos.lon,R+altScale);
+    nodeMap[s.id]={x:nodePt.x,y:nodePt.y,z:nodePt.z};
+    const pin=new THREE.Mesh(new THREE.SphereGeometry(0.25,12,12),new THREE.MeshBasicMaterial({color:0xc62828}));
+    pin.position.copy(surfPt);mapView.group.add(pin);
+    const lead=new THREE.Line(new THREE.BufferGeometry().setFromPoints([surfPt.clone(),nodePt.clone()]),new THREE.LineDashedMaterial({color:0xd68080,dashSize:0.32,gapSize:0.22}));
+    lead.computeLineDistances();mapView.group.add(lead);
+    mapView.leaders[s.id]=lead;mapView.pins[s.id]={surfPt:surfPt.clone(),mesh:pin,isSat:true};
+    const trailPt=_latLonToSphere(pos.lat,pos.lon,R+0.08);
+    const tlGeo=new THREE.BufferGeometry().setFromPoints([trailPt]);
+    const tlMat=new THREE.LineBasicMaterial({color:0xc62828,transparent:true,opacity:0.55});
+    const tl=new THREE.Line(tlGeo,tlMat);tl.frustumCulled=false;mapView.group.add(tl);
+    orbitState.trails[s.id]={points:[trailPt],line:tl,geometry:tlGeo};
+  });
+  // Place non-geo non-sat nodes in a ring around the globe
+  const allIds=[...O.cls.map(c=>c.id),...O.ind.map(i=>i.id)].filter(id=>nodeMap[id]||true);
+  const movable=allIds.filter(id=>!geoIds.has(id));
+  movable.forEach((id,i)=>{const a=i/Math.max(1,movable.length)*Math.PI*2;const r=R*1.75;nodeMap[id]={x:Math.cos(a)*r,y:R*0.45*(((i%3)-1)),z:Math.sin(a)*r};});
+  applyPositions();
+  camera.position.set(0,R*1.4,R*3.0);ctrl.target.set(0,0,0);
+  return true;
+}
+// === Grid layout: generic N×M board for nodes with gridX/gridY ===
+function gridLayout(){
+  const gridNodes=(O.grid&&O.grid.nodes)||[];
+  if(!gridNodes.length)return false;
+  _disposeMapGroup();
+  mapView.group=new THREE.Group();scene.add(mapView.group);
+  mapView.active=true;mapView.mode='grid';floorGrid.visible=false;
+  // Bbox: prefer explicit ontology-declared gridDimX/gridDimY (e.g., chess 8x8), else compute from data.
+  let minX,maxX,minY,maxY,cols,rows;
+  const _dimX=(O.grid&&O.grid.dimX)||null,_dimY=(O.grid&&O.grid.dimY)||null;
+  if(_dimX&&_dimY){
+    minX=0;maxX=_dimX-1;minY=0;maxY=_dimY-1;cols=_dimX;rows=_dimY;
+  }else{
+    let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
+    gridNodes.forEach(n=>{mnX=Math.min(mnX,n.gx);mxX=Math.max(mxX,n.gx);mnY=Math.min(mnY,n.gy);mxY=Math.max(mxY,n.gy);});
+    minX=Math.floor(mnX);maxX=Math.ceil(mxX);minY=Math.floor(mnY);maxY=Math.ceil(mxY);
+    cols=maxX-minX+1;rows=maxY-minY+1;
+  }
+  const CELL=6,planeW=cols*CELL,planeH=rows*CELL;
+  mapView.ctx={minX,maxX,minY,maxY,cols,rows,CELL,planeW,planeH};
+  // Checkered board (light/dark alternating, chess-friendly but generic enough)
+  for(let cy=0;cy<rows;cy++){
+    for(let cx=0;cx<cols;cx++){
+      const isLight=(cx+cy)%2===0;
+      const mat=new THREE.MeshBasicMaterial({color:isLight?0xf0e8d0:0xb88860,side:THREE.DoubleSide,transparent:true,opacity:0.88});
+      const cell=new THREE.Mesh(new THREE.PlaneGeometry(CELL,CELL),mat);
+      cell.rotation.x=-Math.PI/2;
+      cell.position.set((cx-(cols-1)/2)*CELL,-9,-(cy-(rows-1)/2)*CELL);
+      mapView.group.add(cell);
+    }
+  }
+  // Grid frame border
+  const border=new THREE.GridHelper(Math.max(planeW,planeH)*1.04,1,0x666666,0x666666);
+  border.material.transparent=true;border.material.opacity=0.4;border.position.y=-8.9;mapView.group.add(border);
+  // Tier the grid-positioned nodes: Squares sit ON the board (y=0.5, no pin); other Pieces float above (y=NODE_Y) with pin+leader.
+  // This way locatedAt arrows (Piece → Square) render as a visible vertical drop, not a zero-length stub.
+  const gridIds=new Set();const NODE_Y=4,PIN_Y=-8.85,SQUARE_Y=0.5;
+  const _indCls={};O.ind.forEach(i=>{_indCls[i.id]=i.cls;});
+  // Detect Square class (and any subclass of Square)
+  const _squareSubclasses=new Set(['Square']);
+  let changed=true;while(changed){changed=false;O.sub.forEach(([sub,sup])=>{if(_squareSubclasses.has(sup)&&!_squareSubclasses.has(sub)){_squareSubclasses.add(sub);changed=true;}});}
+  gridNodes.forEach(n=>{
+    gridIds.add(n.id);
+    const wx=(n.gx-minX-(cols-1)/2)*CELL;
+    const wz=-(n.gy-minY-(rows-1)/2)*CELL;
+    const isSquare=_squareSubclasses.has(_indCls[n.id]);
+    if(isSquare){
+      // Square sits flat on the board cell — no pin/leader needed (the cell IS the visual).
+      nodeMap[n.id]={x:wx,y:SQUARE_Y,z:wz};
+    } else {
+      // Piece: pin on cell + leader rising to floating node mesh
+      nodeMap[n.id]={x:wx,y:NODE_Y,z:wz};
+      const pinMat=new THREE.MeshBasicMaterial({color:0x1c4f99,side:THREE.DoubleSide});
+      const pin=new THREE.Mesh(new THREE.CircleGeometry(0.4,16),pinMat);
+      pin.rotation.x=-Math.PI/2;pin.position.set(wx,PIN_Y,wz);mapView.group.add(pin);
+      const ldGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(wx,PIN_Y+0.02,wz),new THREE.Vector3(wx,NODE_Y-0.6,wz)]);
+      const ldMat=new THREE.LineDashedMaterial({color:0x6a8cb6,dashSize:0.32,gapSize:0.22});
+      const lead=new THREE.Line(ldGeo,ldMat);lead.computeLineDistances();mapView.group.add(lead);
+      mapView.leaders[n.id]=lead;mapView.pins[n.id]={x:wx,z:wz,mesh:pin};
+      // Big board-level sprite: standing piece visual using the node's rdfs:label as a camera-facing billboard.
+      // Generic — works for any grid ontology with labeled cell-positioned items (chess pieces, seat names, periodic-table symbols, etc.).
+      const _lbl=O.labels&&O.labels[n.id];
+      if(_lbl){
+        const _cv=document.createElement('canvas');_cv.width=_cv.height=256;
+        const _cx=_cv.getContext('2d');
+        _cx.font='bold 200px "DejaVu Sans","Apple Symbols","Segoe UI Symbol",serif';
+        _cx.textAlign='center';_cx.textBaseline='middle';
+        _cx.lineWidth=16;_cx.strokeStyle='rgba(255,255,255,0.95)';_cx.strokeText(_lbl,128,128);
+        _cx.fillStyle='#1a1a1a';_cx.fillText(_lbl,128,128);
+        const _tex=new THREE.CanvasTexture(_cv);_tex.needsUpdate=true;
+        const _sprMat=new THREE.SpriteMaterial({map:_tex,transparent:true,depthWrite:false});
+        const _spr=new THREE.Sprite(_sprMat);
+        const _SPR=CELL*0.82;
+        _spr.scale.set(_SPR,_SPR,1);
+        _spr.position.set(wx,-9+_SPR/2,wz);
+        _spr.renderOrder=2;
+        mapView.group.add(_spr);
+      }
+    }
+  });
+  // Non-grid nodes — separate Classes (top tier, y=18) from other Individuals (mid tier, y=10) so the TBox/ABox hierarchy is visually obvious.
+  const allIds=[...O.cls.map(c=>c.id),...O.ind.map(i=>i.id)].filter(id=>nodeMap[id]||true);
+  const movable=allIds.filter(id=>!gridIds.has(id));
+  const classSet=new Set(O.cls.map(c=>c.id));
+  const classNodes=movable.filter(id=>classSet.has(id));
+  const otherInds=movable.filter(id=>!classSet.has(id));
+  // Classes: multi-tier outer ring — depth in subClassOf tree maps to y. Roots at top, leaves below.
+  // subClassOf arrows then naturally point UP (child → parent), making the TBox hierarchy obvious.
+  const _classDepth={};
+  function _classRootDist(id,visited){
+    if(_classDepth[id]!==undefined)return _classDepth[id];
+    if(visited.has(id))return 0;
+    visited.add(id);
+    const parents=O.sub.filter(s=>s[0]===id).map(s=>s[1]).filter(p=>classSet.has(p));
+    if(!parents.length){_classDepth[id]=0;return 0;}
+    let mx=0;parents.forEach(p=>{const d=_classRootDist(p,new Set(visited))+1;if(d>mx)mx=d;});
+    _classDepth[id]=mx;return mx;
+  }
+  classNodes.forEach(id=>_classRootDist(id,new Set()));
+  const _maxClassDepth=Math.max(0,...classNodes.map(id=>_classDepth[id]||0));
+  const CLASS_BASE_Y=18,CLASS_TIER_GAP=4;
+  // Group classes by depth and lay each tier on its own ring (slightly wider for deeper).
+  const _byDepth={};
+  classNodes.forEach(id=>{const d=_classDepth[id]||0;(_byDepth[d]=_byDepth[d]||[]).push(id);});
+  Object.keys(_byDepth).map(Number).sort((a,b)=>a-b).forEach(depth=>{
+    const ids=_byDepth[depth];
+    const y=CLASS_BASE_Y+(_maxClassDepth-depth)*CLASS_TIER_GAP;
+    const r=Math.max(planeW,planeH)*(0.85+depth*0.06);
+    // Angular offset per depth so tiers don't all align (cleaner visual separation)
+    const aOff=depth*0.18;
+    ids.sort().forEach((id,i)=>{const a=aOff+i/Math.max(1,ids.length)*Math.PI*2;nodeMap[id]={x:Math.cos(a)*r,y,z:Math.sin(a)*r};});
+  });
+  // Other individuals (TacticalPattern, Move, etc.): mid tier ring, slightly inside the class ring
+  otherInds.forEach((id,i)=>{const a=(i+0.5)/Math.max(1,otherInds.length)*Math.PI*2;const r=Math.max(planeW,planeH)*0.68;nodeMap[id]={x:Math.cos(a)*r,y:10,z:Math.sin(a)*r};});
+  applyPositions();
+  const fit=Math.max(planeW,planeH)*0.95;camera.position.set(0,fit*0.9,fit*1.1);ctrl.target.set(0,0,0);
+  return true;
+}
+const _bgeomap=document.getElementById('bgeomap');
+if(_bgeomap)_bgeomap.addEventListener('click',()=>{
+  if(mapView.active&&mapView.mode==='map'){exitMapView();document.getElementById('bh').click();}
+  else{exitMapView();setView2D(false);resetBends();_setLayoutActive('');if(mapLayout())_bgeomap.classList.add('active-map');}
+});
+const _bgeoglobe=document.getElementById('bgeoglobe');
+if(_bgeoglobe)_bgeoglobe.addEventListener('click',()=>{
+  if(mapView.active&&mapView.mode==='globe'){exitMapView();document.getElementById('bh').click();}
+  else{exitMapView();setView2D(false);resetBends();_setLayoutActive('');if(globeLayout())_bgeoglobe.classList.add('active-map');}
+});
+const _bgrid=document.getElementById('bgrid');
+if(_bgrid)_bgrid.addEventListener('click',()=>{
+  if(mapView.active&&mapView.mode==='grid'){exitMapView();document.getElementById('bh').click();}
+  else{exitMapView();setView2D(false);resetBends();_setLayoutActive('');if(gridLayout())_bgrid.classList.add('active-map');}
+});
 const _bre=document.getElementById('bre');
 if(_bre)_bre.addEventListener('click',()=>{
   if(_bre.classList.contains('active')){clearReasoning();_bre.classList.remove('active');}
   else{applyReasoning();_bre.classList.add('active');}
 });
+
+// ---- Recording (MP4 via MediaRecorder + GIF via gif.js) ----
+(function(){
+  const _brec=document.getElementById('brec');if(!_brec)return;
+  const status=document.getElementById('rec-status');
+  let mediaRecorder=null,recChunks=[],recMime='',gif=null,gifTimer=null,recStartedAt=0,gifTotalFrames=0,recTimer=null,pendingMP4=null,pendingGIF=null,baseName='';
+  function setStatus(msg){if(!status)return;if(!msg){status.style.display='none';return;}status.textContent=msg;status.style.display='block';}
+  function pickMime(){
+    const cands=['video/mp4;codecs=h264','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    for(const m of cands){if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m))return m;}
+    return '';
+  }
+  function nowStamp(){const d=new Date(),pad=n=>String(n).padStart(2,'0');return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds());}
+  function bridge(){return window.webkit&&webkit.messageHandlers&&webkit.messageHandlers.ontoair;}
+  function saveBlob(blob,name){
+    if(bridge()){
+      const r=new FileReader();r.onload=()=>{const b64=String(r.result).split(',')[1]||'';
+        webkit.messageHandlers.ontoair.postMessage({action:'saveFile',name,b64,mime:blob.type});};
+      r.readAsDataURL(blob);
+    }else{
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.style.display='none';
+      document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+    }
+  }
+  function maybeFinish(){
+    if(pendingMP4&&pendingGIF){
+      saveBlob(pendingMP4.blob,baseName+'.'+pendingMP4.ext);
+      saveBlob(pendingGIF,baseName+'.gif');
+      pendingMP4=null;pendingGIF=null;baseName='';
+      setStatus('● 저장 완료');setTimeout(()=>setStatus(''),2500);
+    }
+  }
+  // 2D compositor merges the THREE canvas (3D scene) with the hc-hand overlay (hand outlines).
+  // Used as the source for both MediaRecorder and gif.js so both pipelines see the same picture.
+  let compCanvas=null,compCtx=null,compRAF=0;
+  function ensureCompositor(){
+    if(!compCanvas){compCanvas=document.createElement('canvas');compCtx=compCanvas.getContext('2d');}
+    if(compCanvas.width!==canvas.width)compCanvas.width=canvas.width;
+    if(compCanvas.height!==canvas.height)compCanvas.height=canvas.height;
+  }
+  function drawComposite(){
+    if(!compCtx)return;
+    if(compCanvas.width!==canvas.width||compCanvas.height!==canvas.height){
+      compCanvas.width=canvas.width;compCanvas.height=canvas.height;
+    }
+    compCtx.fillStyle='#fff';compCtx.fillRect(0,0,compCanvas.width,compCanvas.height);
+    compCtx.drawImage(canvas,0,0,compCanvas.width,compCanvas.height);
+    const hcHand=document.getElementById('hc-hand');
+    if(hcHand&&hcHand.width&&hcHand.height){
+      compCtx.drawImage(hcHand,0,0,compCanvas.width,compCanvas.height);
+    }
+  }
+  function startCompLoop(){if(compRAF)return;const tick=()=>{drawComposite();compRAF=requestAnimationFrame(tick);};compRAF=requestAnimationFrame(tick);}
+  function stopCompLoop(){if(compRAF){cancelAnimationFrame(compRAF);compRAF=0;}}
+  function startRec(){
+    if(!window.MediaRecorder||typeof canvas.captureStream!=='function'){alert('이 환경은 녹화를 지원하지 않습니다.');return;}
+    recMime=pickMime();
+    if(!recMime){alert('지원되는 비디오 코덱이 없습니다.');return;}
+    ensureCompositor();drawComposite();startCompLoop();
+    const stream=compCanvas.captureStream(30);
+    recChunks=[];gifTotalFrames=0;
+    try{mediaRecorder=new MediaRecorder(stream,{mimeType:recMime,videoBitsPerSecond:5_000_000});}
+    catch(e){stopCompLoop();alert('MediaRecorder 시작 실패: '+e.message);return;}
+    mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size>0)recChunks.push(e.data);};
+    mediaRecorder.onstop=()=>{
+      const ext=recMime.includes('mp4')?'mp4':'webm';
+      pendingMP4={blob:new Blob(recChunks,{type:recMime}),ext};recChunks=[];maybeFinish();
+    };
+    mediaRecorder.start();
+    if(typeof GIF==='function'){
+      try{
+        gif=new GIF({workers:2,quality:12,workerScript:'gif.worker.js',width:compCanvas.width,height:compCanvas.height,background:'#fff'});
+        gif.on('finished',blob=>{pendingGIF=blob;gif=null;maybeFinish();});
+        gifTimer=setInterval(()=>{try{drawComposite();gif.addFrame(compCanvas,{copy:true,delay:100});gifTotalFrames++;}catch(_){}},100);
+      }catch(e){gif=null;}
+    }
+    recStartedAt=performance.now();baseName='ontoair-'+nowStamp();
+    _brec.classList.add('recording');_brec.textContent='Stop';
+    recTimer=setInterval(()=>{const s=Math.floor((performance.now()-recStartedAt)/1000);setStatus('REC '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0')+'  ('+gifTotalFrames+'f gif)');},250);
+  }
+  function stopRec(){
+    if(recTimer){clearInterval(recTimer);recTimer=null;}
+    if(gifTimer){clearInterval(gifTimer);gifTimer=null;}
+    stopCompLoop();
+    _brec.classList.remove('recording');_brec.textContent='Rec';
+    if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();
+    mediaRecorder=null;
+    if(gif){setStatus('GIF 인코딩 중...');try{gif.render();}catch(_){pendingGIF=new Blob([],{type:'image/gif'});maybeFinish();}}
+    else{pendingGIF=new Blob([],{type:'image/gif'});maybeFinish();}
+  }
+  _brec.addEventListener('click',()=>{if(_brec.classList.contains('recording'))stopRec();else startRec();});
+})();
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
 document.getElementById('fn').textContent=FNAME;
@@ -1006,6 +1823,11 @@ window.OA={THREE,camera,ctrl,renderer,canvas,raycaster,nodeMeshes,edgeObjs,arrow
   setSelectedRoot:(id)=>{selectedRoot=id;selectedLine=null;updateSelection();},
   setSelectedLine:(l)=>{selectedLine=l;selectedRoot=null;updateSelection();},
   clearSelection:()=>{selectedRoot=null;selectedLine=null;updateSelection();},
+  setNeighborhood:(rootId,depth)=>{isolatedRoot=rootId||null;isolationDepth=Math.min(MAX_NEIGHBORHOOD_DEPTH,Math.max(1,(depth==null?1:depth)|0));applyIsolation();},
+  setNeighborhoodDepth:(d)=>{const nd=Math.min(MAX_NEIGHBORHOOD_DEPTH,Math.max(1,(d==null?1:d)|0));if(nd===isolationDepth)return;isolationDepth=nd;if(isolatedRoot)applyIsolation();},
+  clearNeighborhood:()=>{isolatedRoot=null;isolationDepth=1;applyIsolation();},
+  getIsolationRoot:()=>isolatedRoot,
+  getIsolationDepth:()=>isolationDepth,
   selectAtNDC:(x,y)=>{
     mouse.x=x;mouse.y=y;raycaster.setFromCamera(mouse,camera);
     const nh=raycaster.intersectObjects(nodeMeshes,true);

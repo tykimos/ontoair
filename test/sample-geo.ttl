@@ -1,0 +1,114 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix ex: <http://example.org/places#> .
+
+ex:Ontology rdf:type owl:Ontology ;
+    rdfs:label "OntoAir geo sample — East Asian cities & landmarks" .
+
+# Classes
+ex:Place rdf:type owl:Class ;
+    rdfs:label "Place" .
+ex:City rdf:type owl:Class ;
+    rdfs:label "City" ;
+    rdfs:subClassOf ex:Place .
+ex:Country rdf:type owl:Class ;
+    rdfs:label "Country" ;
+    rdfs:subClassOf ex:Place .
+ex:Landmark rdf:type owl:Class ;
+    rdfs:label "Landmark" ;
+    rdfs:subClassOf ex:Place .
+ex:Concept rdf:type owl:Class ;
+    rdfs:label "Concept" .
+
+# Object Properties
+ex:locatedIn rdf:type owl:ObjectProperty ;
+    rdfs:label "locatedIn" ;
+    rdfs:domain ex:Place ;
+    rdfs:range ex:Place .
+ex:relatedTo rdf:type owl:ObjectProperty ;
+    rdfs:label "relatedTo" ;
+    rdfs:domain ex:Concept ;
+    rdfs:range ex:Concept .
+
+# Datatype Properties (WGS84 coordinates)
+geo:lat rdf:type owl:DatatypeProperty ;
+    rdfs:label "latitude" ;
+    rdfs:domain ex:Place ;
+    rdfs:range xsd:decimal .
+geo:long rdf:type owl:DatatypeProperty ;
+    rdfs:label "longitude" ;
+    rdfs:domain ex:Place ;
+    rdfs:range xsd:decimal .
+
+# Cities (with geo coordinates)
+ex:Seoul rdf:type ex:City ;
+    rdfs:label "Seoul" ;
+    geo:lat 37.5665 ;
+    geo:long 126.9780 ;
+    ex:locatedIn ex:Korea .
+
+ex:Busan rdf:type ex:City ;
+    rdfs:label "Busan" ;
+    geo:lat 35.1796 ;
+    geo:long 129.0756 ;
+    ex:locatedIn ex:Korea .
+
+ex:Tokyo rdf:type ex:City ;
+    rdfs:label "Tokyo" ;
+    geo:lat 35.6762 ;
+    geo:long 139.6503 ;
+    ex:locatedIn ex:Japan .
+
+ex:Osaka rdf:type ex:City ;
+    rdfs:label "Osaka" ;
+    geo:lat 34.6937 ;
+    geo:long 135.5023 ;
+    ex:locatedIn ex:Japan .
+
+ex:Beijing rdf:type ex:City ;
+    rdfs:label "Beijing" ;
+    geo:lat 39.9042 ;
+    geo:long 116.4074 ;
+    ex:locatedIn ex:China .
+
+# Countries (with centroid coordinates)
+ex:Korea rdf:type ex:Country ;
+    rdfs:label "South Korea" ;
+    geo:lat 36.5 ;
+    geo:long 127.75 .
+
+ex:Japan rdf:type ex:Country ;
+    rdfs:label "Japan" ;
+    geo:lat 36.2 ;
+    geo:long 138.25 .
+
+ex:China rdf:type ex:Country ;
+    rdfs:label "China" ;
+    geo:lat 35.86 ;
+    geo:long 104.20 .
+
+# Landmarks (city-scoped, geo)
+ex:Gyeongbokgung rdf:type ex:Landmark ;
+    rdfs:label "Gyeongbokgung Palace" ;
+    geo:lat 37.5796 ;
+    geo:long 126.9770 ;
+    ex:locatedIn ex:Seoul .
+
+ex:TokyoTower rdf:type ex:Landmark ;
+    rdfs:label "Tokyo Tower" ;
+    geo:lat 35.6586 ;
+    geo:long 139.7454 ;
+    ex:locatedIn ex:Tokyo .
+
+# Concepts (intentionally without coordinates — auto-laid out)
+ex:Hallyu rdf:type ex:Concept ;
+    rdfs:label "Korean Wave" ;
+    ex:relatedTo ex:JPop .
+ex:JPop rdf:type ex:Concept ;
+    rdfs:label "J-Pop" ;
+    ex:relatedTo ex:Hallyu .
+ex:CherryBlossom rdf:type ex:Concept ;
+    rdfs:label "Cherry Blossom" .

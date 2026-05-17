@@ -1,0 +1,174 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/chess#> .
+
+ex:Ontology rdf:type owl:Ontology ;
+    rdfs:label "Chess: Fork — Knight d5 forks Queen f6 AND Rook b6" ;
+    rdfs:comment "Fork is when one piece attacks 2+ opponent pieces simultaneously, typically of higher combined value than itself. UNLIKE Double Attack (which can be a position state), a Fork is usually CREATED by a specific move — the forking piece JUMPS into the forking square. This is the canonical case where ex:creates (not ex:exploits) is the right verb for the move." ;
+    ex:gridDimX 8 ;
+    ex:gridDimY 8 .
+
+# === TBox — Piece hierarchy ===
+ex:Piece rdf:type owl:Class ; rdfs:label "Piece" .
+ex:King rdf:type owl:Class ; rdfs:label "King" ; rdfs:subClassOf ex:Piece .
+ex:Queen rdf:type owl:Class ; rdfs:label "Queen" ; rdfs:subClassOf ex:Piece .
+ex:Rook rdf:type owl:Class ; rdfs:label "Rook" ; rdfs:subClassOf ex:Piece .
+ex:Bishop rdf:type owl:Class ; rdfs:label "Bishop" ; rdfs:subClassOf ex:Piece .
+ex:Knight rdf:type owl:Class ; rdfs:label "Knight" ; rdfs:subClassOf ex:Piece .
+ex:Pawn rdf:type owl:Class ; rdfs:label "Pawn" ; rdfs:subClassOf ex:Piece .
+
+# Reasoner-derived: any piece attacked by a Fork's focus ⇒ ForkVictim
+ex:ForkVictim rdf:type owl:Class ;
+    rdfs:label "Fork Victim" ;
+    rdfs:subClassOf ex:Piece ;
+    rdfs:comment "Reasoner rule: ∃Fork(?f) ∧ ?f attacks ?v ⇒ ?v a ForkVictim. The victim cannot save itself by single move because at least one sibling victim will be captured." .
+
+# === TBox — Square ===
+ex:Square rdf:type owl:Class ; rdfs:label "Square" .
+
+# === TBox — Tactical patterns ===
+ex:TacticalPattern rdf:type owl:Class ; rdfs:label "Tactical Pattern" .
+ex:Fork rdf:type owl:Class ; rdfs:label "Fork" ; rdfs:subClassOf ex:TacticalPattern ;
+    rdfs:comment "One piece attacks ≥2 opponent pieces simultaneously. Differs from DoubleAttack (which can have multiple attackers on one target)." .
+
+# Fork subtypes derivable from victims' classes
+ex:RoyalFork rdf:type owl:Class ;
+    rdfs:label "Royal Fork (King + Queen)" ;
+    rdfs:subClassOf ex:Fork ;
+    rdfs:comment "Reasoner rule: Fork where victims include King AND Queen ⇒ RoyalFork. Highest-value fork — Queen is automatically won." .
+ex:FamilyFork rdf:type owl:Class ;
+    rdfs:label "Family Fork (King + Queen + 3rd piece)" ;
+    rdfs:subClassOf ex:RoyalFork ;
+    rdfs:comment "Reasoner rule: Fork with ≥3 victims including King AND Queen ⇒ FamilyFork." .
+
+# === TBox — Move ===
+ex:Move rdf:type owl:Class ; rdfs:label "Move" .
+ex:CaptureMove rdf:type owl:Class ; rdfs:label "Capture" ; rdfs:subClassOf ex:Move .
+
+# Reasoner-derived: Move creating a Fork ⇒ WinningMove (almost always wins material)
+ex:WinningMove rdf:type owl:Class ;
+    rdfs:label "Winning Move" ;
+    rdfs:subClassOf ex:Move ;
+    rdfs:comment "Reasoner rule: Move creates.Fork where ∑value(victims) > value(forker) ⇒ WinningMove." .
+
+# === ObjectProperties ===
+ex:locatedAt rdf:type owl:ObjectProperty ; rdfs:domain ex:Piece ; rdfs:range ex:Square .
+ex:attacks rdf:type owl:ObjectProperty ; rdfs:label "attacks" ; rdfs:domain ex:Piece ; rdfs:range ex:Piece .
+ex:focusedOn rdf:type owl:ObjectProperty ; rdfs:label "focusedOn" ;
+    rdfs:comment "For a Fork, this is the FORKING piece (singular attacker); for DoubleAttack, this is the TARGET (singular victim). Read context-sensitively per pattern type." .
+ex:forks rdf:type owl:ObjectProperty ; rdfs:label "forks" ;
+    rdfs:domain ex:Fork ; rdfs:range ex:Piece ;
+    rdfs:comment "The victims of the fork — pieces being simultaneously attacked." .
+
+# Move semantics
+ex:movedPiece rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Piece .
+ex:from rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Square .
+ex:to rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Square .
+ex:creates rdf:type owl:ObjectProperty ; rdfs:label "creates" ;
+    rdfs:domain ex:Move ; rdfs:range ex:TacticalPattern ;
+    rdfs:comment "Move brings a NEW tactical pattern into existence (the Fork did not exist before this move)." .
+ex:winsMaterial rdf:type owl:ObjectProperty ; rdfs:label "winsMaterial" ;
+    rdfs:domain ex:Move ; rdfs:range ex:Piece ;
+    rdfs:comment "The piece that will be captured after best defensive response (the lower-value victim of a Fork, typically)." .
+
+# === DatatypeProperties ===
+ex:color rdf:type owl:DatatypeProperty ; rdfs:range xsd:string .
+ex:pieceValue rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridX rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridY rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:materialGain rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer ;
+    rdfs:comment "Net material gain of the move (lower victim value - knight value, typically)" .
+
+# === ABox — Key squares ===
+ex:e3 rdf:type ex:Square ; rdfs:label "e3" ; ex:gridX 4 ; ex:gridY 2 .
+ex:d5 rdf:type ex:Square ; rdfs:label "d5" ; ex:gridX 3 ; ex:gridY 4 .
+ex:f6 rdf:type ex:Square ; rdfs:label "f6" ; ex:gridX 5 ; ex:gridY 5 .
+ex:b6 rdf:type ex:Square ; rdfs:label "b6" ; ex:gridX 1 ; ex:gridY 5 .
+
+# === ABox — White pieces ===
+# The forking Knight — just landed on d5
+ex:WhiteKnight_d5 rdf:type ex:Knight ;
+    rdfs:label "♘" ;
+    rdfs:comment "The forking piece. From d5 it simultaneously attacks f6 (Queen) and b6 (Rook). Both are higher-value targets." ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:gridX 3 ; ex:gridY 4 ;
+    ex:locatedAt ex:d5 ;
+    ex:attacks ex:BlackQueen_f6, ex:BlackRook_b6 .
+
+ex:WhiteKing_g1 rdf:type ex:King ;
+    rdfs:label "♔" ;
+    ex:color "White" ; ex:pieceValue 0 ;
+    ex:gridX 6 ; ex:gridY 0 .
+
+ex:WhiteQueen_d1 rdf:type ex:Queen ;
+    rdfs:label "♕" ;
+    ex:color "White" ; ex:pieceValue 9 ;
+    ex:gridX 3 ; ex:gridY 0 .
+
+ex:WhiteRook_a1 rdf:type ex:Rook ;
+    rdfs:label "♖" ;
+    ex:color "White" ; ex:pieceValue 5 ;
+    ex:gridX 0 ; ex:gridY 0 .
+
+ex:WhiteBishop_c1 rdf:type ex:Bishop ;
+    rdfs:label "♗" ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:gridX 2 ; ex:gridY 0 .
+
+ex:WhitePawn_e4 rdf:type ex:Pawn ;
+    rdfs:label "♙" ;
+    ex:color "White" ; ex:pieceValue 1 ;
+    ex:gridX 4 ; ex:gridY 3 .
+
+# === ABox — Black pieces ===
+# The fork victims — multi-typed via reasoner derivation
+ex:BlackQueen_f6 rdf:type ex:Queen, ex:ForkVictim ;
+    rdfs:label "♛" ;
+    rdfs:comment "Derived ForkVictim: attacked by WhiteKnight_d5. Must move next turn, but moving leaves Rook unprotected." ;
+    ex:color "Black" ; ex:pieceValue 9 ;
+    ex:gridX 5 ; ex:gridY 5 ;
+    ex:locatedAt ex:f6 .
+
+ex:BlackRook_b6 rdf:type ex:Rook, ex:ForkVictim ;
+    rdfs:label "♜" ;
+    rdfs:comment "Derived ForkVictim: attacked by WhiteKnight_d5. Will be captured after Queen escapes." ;
+    ex:color "Black" ; ex:pieceValue 5 ;
+    ex:gridX 1 ; ex:gridY 5 ;
+    ex:locatedAt ex:b6 .
+
+ex:BlackKing_g8 rdf:type ex:King ;
+    rdfs:label "♚" ;
+    ex:color "Black" ; ex:pieceValue 0 ;
+    ex:gridX 6 ; ex:gridY 7 .
+
+ex:BlackPawn_h7 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 7 ; ex:gridY 6 .
+
+ex:BlackPawn_g7 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 6 ; ex:gridY 6 .
+
+# === The Fork pattern (reified) ===
+ex:Fork_at_d5 rdf:type ex:Fork ;
+    rdfs:label "Fork at d5 (Queen + Rook)" ;
+    rdfs:comment "WhiteKnight_d5 forks two higher-value Black pieces. Total victim value = 9 (Queen) + 5 (Rook) = 14 >> 3 (Knight). Black must lose ≥5 material (Rook) since Queen will escape but Rook cannot be defended fast enough." ;
+    ex:focusedOn ex:WhiteKnight_d5 ;
+    ex:forks ex:BlackQueen_f6, ex:BlackRook_b6 .
+
+# === The Move that CREATED the fork ===
+# Before this move (Knight on e3), no fork existed. After Knight lands on d5, the fork is born.
+# This is the canonical correct usage of `ex:creates`.
+ex:Move_Nd5 rdf:type ex:CaptureMove, ex:WinningMove ;
+    rdfs:label "Nd5" ;
+    rdfs:comment "The forking move. Knight jumps from e3 to d5, creating the Fork. Black's best response is to save the Queen (higher value), conceding the Rook. Net material gain for White: +5 (Rook) - 0 (Knight stays) = +5." ;
+    ex:from ex:e3 ;
+    ex:to ex:d5 ;
+    ex:movedPiece ex:WhiteKnight_d5 ;
+    ex:creates ex:Fork_at_d5 ;
+    ex:winsMaterial ex:BlackRook_b6 ;
+    ex:materialGain 5 .

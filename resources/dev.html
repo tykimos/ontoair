@@ -38,6 +38,21 @@ body.src-collapsed #src-resize{display:none}
 #controls button{background:#fff;border:1px solid #ddd;border-radius:8px;padding:7px 16px;color:#555;font-size:11px;cursor:pointer;transition:all .15s}
 #controls button:hover{background:#f5f5f5;border-color:#ccc}
 #controls button.active{background:#333;color:#fff;border-color:#333}
+#controls #brec.recording{background:#c62828;color:#fff;border-color:#a31515}
+#controls #brec.recording::before{content:'● ';color:#fff;animation:rec-pulse 1s infinite}
+#controls button.ctrl-badge{background:#eaf2ff;color:#1c4f99;border-color:#b9d3f3;letter-spacing:.5px;font-weight:600}
+#controls button.ctrl-badge:hover{background:#d6e6fc;border-color:#8fb6e8}
+#controls button.ctrl-badge.active-map{background:#1c4f99;color:#fff;border-color:#1c4f99}
+@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#rec-status{position:fixed;bottom:60px;right:16px;z-index:10;background:rgba(0,0,0,0.78);color:#fff;font-size:11px;padding:6px 10px;border-radius:6px;display:none;font-family:'SF Mono',Menlo,monospace}
+#map-attrib{position:fixed;bottom:60px;right:16px;z-index:9;font-size:9px;color:#888;background:rgba(255,255,255,0.88);padding:2px 8px;border-radius:4px;border:1px solid #eee;display:none;font-family:'SF Pro',system-ui,sans-serif}
+#map-attrib a{color:#666;text-decoration:none}#map-attrib a:hover{text-decoration:underline}
+#depth-dial{position:fixed;bottom:16px;left:calc(var(--src-w) + 16px);z-index:18;display:none;flex-direction:column;align-items:center;gap:4px;width:96px;transition:left 0.22s;font-family:'SF Pro',system-ui,sans-serif;pointer-events:none}
+body.src-collapsed #depth-dial{left:38px}
+#depth-dial.active{display:flex}
+#depth-dial svg{width:96px;height:96px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.08))}
+#depth-dial .dial-label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+#depth-needle{transform-origin:0 0;transition:transform .18s cubic-bezier(.2,.7,.3,1)}
 #search{position:fixed;top:16px;right:200px;z-index:10;background:rgba(255,255,255,0.94);border:1px solid #e0e0e0;border-radius:8px;padding:8px 14px;font-size:12px;width:200px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 #search:focus{border-color:#999;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
 #devbar{position:fixed;top:16px;right:64px;z-index:20;display:flex;gap:6px;align-items:center;background:#fffbe6;border:1px solid #f0d96d;border-radius:8px;padding:6px 10px;font-size:11px;color:#866b00;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
@@ -71,6 +86,8 @@ body.src-collapsed #kbd-hint{left:38px}
     <div class='li'><svg class='ls' viewBox='0 0 30 10'><line x1='1' y1='5' x2='29' y2='5' stroke='#aaa' stroke-width='1' stroke-dasharray='2 2'/></svg>rdf:type</div>
     <div class='li'><svg class='ls' viewBox='0 0 30 14'><polyline points='2,10 9,3 28,3' fill='none' stroke='#888' stroke-width='1.2'/></svg>DatatypeProperty</div>
   </div>
+  <h4>Filter Edges</h4>
+  <div class='panel' id='edge-filter-panel'><div class='sub'>Loading…</div></div>
   <h4>Source</h4>
   <div id='src-body'></div>
 </aside>
@@ -87,6 +104,12 @@ body.src-collapsed #kbd-hint{left:38px}
     <option value='../test/sample.owl'>sample.owl</option>
     <option value='../test/sample.rdf'>sample.rdf</option>
     <option value='../test/sample.trig'>sample.trig</option>
+    <option value='../test/sample-geo.ttl'>sample-geo.ttl</option>
+    <option value='../test/sample-orbit.ttl'>sample-orbit.ttl</option>
+    <option value='../test/sample-chess.ttl'>sample-chess.ttl (Double Attack)</option>
+    <option value='../test/sample-chess-pin.ttl'>sample-chess-pin.ttl (Pin)</option>
+    <option value='../test/sample-chess-fork.ttl'>sample-chess-fork.ttl (Fork)</option>
+    <option value='../test/sample-chess-discovered.ttl'>sample-chess-discovered.ttl (Discovered Check)</option>
     <option value='../examples/taeyoung.ttl'>taeyoung.ttl</option>
     <option value='../test/assiworks.ttl'>assiworks.ttl</option>
     <option value='../test/tbox.ttl|../test/abox.trig'>tbox.ttl + abox.trig</option>
@@ -98,17 +121,37 @@ body.src-collapsed #kbd-hint{left:38px}
   <input type='file' id='tboxSel' accept='.owl,.rdf,.ttl,.trig' style='font-size:11px'>
   <button id='tboxClose' style='background:transparent;border:none;color:#866b00;cursor:pointer;font-size:14px'>×</button>
 </div>
-<div id='tooltip'><div class='tn' id='ttn'></div><div class='tl' id='ttl'></div><div class='tt' id='ttt'></div><div class='tu' id='ttu'></div><div class='tc' id='ttc'></div><div class='tp' id='ttp'></div></div>
+<div id='tooltip'><div class='tn' id='ttn'></div><div class='tt' id='ttt'></div><div class='tu' id='ttu'></div><div class='tc' id='ttc'></div><div class='tp' id='ttp'></div></div>
+<div id='depth-dial'>
+  <svg viewBox='-50 -50 100 100' aria-hidden='true'>
+    <circle cx='0' cy='0' r='42' fill='#fff' stroke='#e0e0e0' stroke-width='2'/>
+    <g id='depth-ticks' fill='#aaa' font-family='SF Mono,Menlo,monospace' font-size='8' text-anchor='middle' dominant-baseline='central'></g>
+    <g id='depth-needle' transform='rotate(0)'>
+      <line x1='0' y1='-26' x2='0' y2='-40' stroke='#c62828' stroke-width='3' stroke-linecap='round'/>
+    </g>
+    <circle cx='0' cy='0' r='18' fill='#1c1c1c'/>
+    <text id='depth-num' x='0' y='0' text-anchor='middle' dominant-baseline='central' font-size='17' fill='#fff' font-weight='700' font-family='SF Mono,Menlo,monospace'>1</text>
+  </svg>
+  <div class='dial-label'>BFS Depth</div>
+</div>
 <input type='text' id='search' placeholder='Search nodes...'>
 <div id='controls'>
+  <button id='bgeomap' class='ctrl-badge' title='Geo / orbit detected — flat Mercator map' style='display:none'>MAP</button>
+  <button id='bgeoglobe' class='ctrl-badge' title='Geo / orbit detected — 3D globe' style='display:none'>GLOBE</button>
+  <button id='bgrid' class='ctrl-badge' title='Grid coordinates detected (gridX/gridY)' style='display:none'>GRID</button>
   <button id='bh' class='active'>Hierarchy</button>
   <button id='bf'>Force</button>
   <button id='b2' title='2D layered layout with curved edges routed around obstructing nodes'>2D</button>
   <button id='bre' title='Run lightweight OWL reasoner: subClassOf transitivity, type propagation, equivalentClass intersectionOf+someValuesFrom'>Reason</button>
+  <button id='brec' title='Record canvas to MP4 + GIF'>Rec</button>
   <button id='br'>Reset</button>
 </div>
+<div id='rec-status'></div>
+<div id='map-attrib'>© <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a> · © <a href='https://carto.com/attributions' target='_blank'>CARTO</a></div>
+<script src='gif.js'></script>
 <script src='three.min.js'></script>
 <script src='OrbitControls.js'></script>
+<script src='satellite.min.js'></script>
 <script>
 function fmtOf(name){const e=name.toLowerCase().split('.').pop();if(e==='ttl'||e==='trig')return 'ttl';return e;}
 function loadScript(){
@@ -154,9 +197,14 @@ function fetchAll(paths){return Promise.all(paths.map(p=>fetch(p+(p.includes('?'
   }catch(p){alert('fetch failed: '+p);}
 })();
 function maybeShowTBoxBanner(){
-  // Poll briefly until ontoair.js parses RAW into window.O
+  // Poll briefly until ontoair.js parses RAW into window.O. Also drives the GEO badge toggle.
   let tries=0;const t=setInterval(()=>{tries++;
-    if(window.O&&window.O.missingTBox){document.getElementById('tbox-banner').style.display='flex';clearInterval(t);}
+    if(window.O){
+      if(window.O.missingTBox){document.getElementById('tbox-banner').style.display='flex';}
+      if(window.O.hasGeo||window.O.hasOrbit){const bm=document.getElementById('bgeomap');if(bm)bm.style.display='';const bg=document.getElementById('bgeoglobe');if(bg)bg.style.display='';}
+      if(window.O.hasGrid){const bgr=document.getElementById('bgrid');if(bgr)bgr.style.display='';}
+      clearInterval(t);
+    }
     else if(tries>40)clearInterval(t);  // 4s timeout
   },100);
 }

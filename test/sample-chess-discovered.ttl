@@ -1,0 +1,193 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/chess#> .
+
+ex:Ontology rdf:type owl:Ontology ;
+    rdfs:label "Chess: Discovered Check — Knight Nxe7 reveals Bishop's check on King g8" ;
+    rdfs:comment "Discovered Attack is when moving one piece reveals an attack from another piece behind it. The mover and the discovered attacker work as a duo. This sample shows TWO simultaneous threats from a single move — the mover captures + the discovered piece checks. Demonstrates BEFORE→AFTER state reasoning (a temporal dimension that pure OWL handles weakly)." ;
+    ex:gridDimX 8 ;
+    ex:gridDimY 8 .
+
+# === TBox — Piece hierarchy ===
+ex:Piece rdf:type owl:Class ; rdfs:label "Piece" .
+ex:King rdf:type owl:Class ; rdfs:label "King" ; rdfs:subClassOf ex:Piece .
+ex:Queen rdf:type owl:Class ; rdfs:label "Queen" ; rdfs:subClassOf ex:Piece .
+ex:Rook rdf:type owl:Class ; rdfs:label "Rook" ; rdfs:subClassOf ex:Piece .
+ex:Bishop rdf:type owl:Class ; rdfs:label "Bishop" ; rdfs:subClassOf ex:Piece .
+ex:Knight rdf:type owl:Class ; rdfs:label "Knight" ; rdfs:subClassOf ex:Piece .
+ex:Pawn rdf:type owl:Class ; rdfs:label "Pawn" ; rdfs:subClassOf ex:Piece .
+
+# Reasoner-derived: a piece blocking a teammate's attack-line ⇒ LineBlocker
+ex:LineBlocker rdf:type owl:Class ;
+    rdfs:label "Line Blocker" ;
+    rdfs:subClassOf ex:Piece ;
+    rdfs:comment "Reasoner rule: ?p blockerOf ?attacker ∧ sameColor(?p, ?attacker) ⇒ ?p a LineBlocker. Moving such a piece may reveal a discovered attack." .
+
+# Reasoner-derived: piece whose attack is latent (blocked by teammate) ⇒ LatentAttacker
+ex:LatentAttacker rdf:type owl:Class ;
+    rdfs:label "Latent Attacker" ;
+    rdfs:subClassOf ex:Piece ;
+    rdfs:comment "Reasoner rule: ?p has a line-of-sight to ?target but blocked by teammate ⇒ ?p a LatentAttacker. Becomes an active attacker once blocker moves." .
+
+# === TBox — Square ===
+ex:Square rdf:type owl:Class ; rdfs:label "Square" .
+
+# === TBox — Tactical patterns ===
+ex:TacticalPattern rdf:type owl:Class ; rdfs:label "Tactical Pattern" .
+ex:DiscoveredAttack rdf:type owl:Class ;
+    rdfs:label "Discovered Attack" ;
+    rdfs:subClassOf ex:TacticalPattern ;
+    rdfs:comment "Pattern where moving one piece reveals an attack from a teammate behind it. Two pieces work together: the mover (often makes its own threat) and the discoveredAttacker (the hidden one)." .
+
+ex:DiscoveredCheck rdf:type owl:Class ;
+    rdfs:label "Discovered Check" ;
+    rdfs:subClassOf ex:DiscoveredAttack ;
+    rdfs:comment "Reasoner rule: DiscoveredAttack where target is a King ⇒ DiscoveredCheck. Especially dangerous because King must respond, often losing tempo to address the discovered threat." .
+
+ex:DoubleCheck rdf:type owl:Class ;
+    rdfs:label "Double Check" ;
+    rdfs:subClassOf ex:DiscoveredCheck ;
+    rdfs:comment "Reasoner rule: DiscoveredCheck where the mover ALSO gives check ⇒ DoubleCheck. Only King move can respond (cannot block or capture both attackers)." .
+
+# === TBox — Move ===
+ex:Move rdf:type owl:Class ; rdfs:label "Move" .
+ex:CaptureMove rdf:type owl:Class ; rdfs:label "Capture" ; rdfs:subClassOf ex:Move .
+ex:CheckMove rdf:type owl:Class ; rdfs:label "Check" ; rdfs:subClassOf ex:Move .
+
+# Reasoner-derived: Move that triggers both direct AND discovered attack ⇒ DoubleThreatMove
+ex:DoubleThreatMove rdf:type owl:Class ;
+    rdfs:label "Double Threat Move" ;
+    rdfs:subClassOf ex:Move ;
+    rdfs:comment "Reasoner rule: Move attacks.X ∧ creates.DiscoveredAttack ⇒ DoubleThreatMove. Two threats from one move — very hard to defend." .
+
+# === ObjectProperties ===
+ex:locatedAt rdf:type owl:ObjectProperty ; rdfs:domain ex:Piece ; rdfs:range ex:Square .
+ex:attacks rdf:type owl:ObjectProperty ; rdfs:label "attacks" ; rdfs:domain ex:Piece ; rdfs:range ex:Piece .
+
+# DiscoveredAttack-specific
+ex:discoveredBy rdf:type owl:ObjectProperty ; rdfs:label "discoveredBy" ;
+    rdfs:domain ex:DiscoveredAttack ; rdfs:range ex:Piece ;
+    rdfs:comment "The piece whose attack becomes revealed (the hidden attacker behind the blocker)" .
+ex:blockerOf rdf:type owl:ObjectProperty ; rdfs:label "blockerOf" ;
+    rdfs:domain ex:Piece ; rdfs:range ex:Piece ;
+    rdfs:comment "?blocker stands between ?attacker and ?attacker's target on the attack line" .
+ex:throughLine rdf:type owl:ObjectProperty ; rdfs:label "throughLine" ;
+    rdfs:comment "Square the line passes through (geometric reference)" .
+ex:focusedOn rdf:type owl:ObjectProperty ; rdfs:label "focusedOn" ;
+    rdfs:comment "For DiscoveredAttack: the target piece" .
+
+# Move semantics
+ex:movedPiece rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Piece .
+ex:from rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Square .
+ex:to rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Square .
+ex:captures rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Piece .
+ex:creates rdf:type owl:ObjectProperty ; rdfs:label "creates" ;
+    rdfs:domain ex:Move ; rdfs:range ex:TacticalPattern ;
+    rdfs:comment "Move brings a NEW tactical pattern into existence. For DiscoveredAttack: the move 'creates' the active attack because before, it was latent." .
+ex:resultsInCheck rdf:type owl:ObjectProperty ; rdfs:label "resultsInCheck" ;
+    rdfs:domain ex:Move ; rdfs:range ex:King .
+
+# === DatatypeProperties ===
+ex:color rdf:type owl:DatatypeProperty ; rdfs:range xsd:string .
+ex:pieceValue rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridX rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridY rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+
+# === ABox — Key squares ===
+ex:b3 rdf:type ex:Square ; rdfs:label "b3" ; ex:gridX 1 ; ex:gridY 2 .
+ex:d5 rdf:type ex:Square ; rdfs:label "d5" ; ex:gridX 3 ; ex:gridY 4 .
+ex:e7 rdf:type ex:Square ; rdfs:label "e7" ; ex:gridX 4 ; ex:gridY 6 .
+ex:g8 rdf:type ex:Square ; rdfs:label "g8" ; ex:gridX 6 ; ex:gridY 7 .
+
+# === ABox — White pieces ===
+# The latent attacker — Bishop on b3 sees the diagonal b3-c4-d5-e6-f7-g8 but is BLOCKED by own Knight on d5.
+# Multi-typed as LatentAttacker via reasoner derivation.
+ex:WhiteBishop_b3 rdf:type ex:Bishop, ex:LatentAttacker ;
+    rdfs:label "♗" ;
+    rdfs:comment "Derived LatentAttacker: aims at BlackKing on g8 through the b3-g8 diagonal, currently blocked by own Knight on d5. Once Knight moves, the attack on King becomes active (= Discovered Check)." ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:gridX 1 ; ex:gridY 2 ;
+    ex:locatedAt ex:b3 .
+
+# The mover — Knight d5 is currently blocking the Bishop's line to King.
+# Multi-typed as LineBlocker via reasoner derivation.
+ex:WhiteKnight_d5 rdf:type ex:Knight, ex:LineBlocker ;
+    rdfs:label "♘" ;
+    rdfs:comment "Derived LineBlocker: stands on b3-g8 diagonal between Bishop and King. Any move by this Knight reveals the Bishop's attack on the King = automatic Discovered Check, regardless of where Knight goes." ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:gridX 3 ; ex:gridY 4 ;
+    ex:locatedAt ex:d5 ;
+    ex:blockerOf ex:WhiteBishop_b3 .
+
+ex:WhiteKing_g1 rdf:type ex:King ;
+    rdfs:label "♔" ;
+    ex:color "White" ; ex:pieceValue 0 ;
+    ex:gridX 6 ; ex:gridY 0 .
+
+ex:WhiteQueen_d1 rdf:type ex:Queen ;
+    rdfs:label "♕" ;
+    ex:color "White" ; ex:pieceValue 9 ;
+    ex:gridX 3 ; ex:gridY 0 .
+
+ex:WhitePawn_e4 rdf:type ex:Pawn ;
+    rdfs:label "♙" ;
+    ex:color "White" ; ex:pieceValue 1 ;
+    ex:gridX 4 ; ex:gridY 3 .
+
+# === ABox — Black pieces ===
+# Target of the direct attack (Knight captures Queen)
+ex:BlackQueen_e7 rdf:type ex:Queen ;
+    rdfs:label "♛" ;
+    rdfs:comment "Direct target of the Knight's move. Knight on d5 attacks e7 (one of its 8 L-moves), so Nxe7 captures the Queen." ;
+    ex:color "Black" ; ex:pieceValue 9 ;
+    ex:gridX 4 ; ex:gridY 6 ;
+    ex:locatedAt ex:e7 .
+
+# Target of the discovered attack (Bishop checks King through the now-vacated line)
+ex:BlackKing_g8 rdf:type ex:King ;
+    rdfs:label "♚" ;
+    ex:color "Black" ; ex:pieceValue 0 ;
+    ex:gridX 6 ; ex:gridY 7 ;
+    ex:locatedAt ex:g8 .
+
+ex:BlackRook_a8 rdf:type ex:Rook ;
+    rdfs:label "♜" ;
+    ex:color "Black" ; ex:pieceValue 5 ;
+    ex:gridX 0 ; ex:gridY 7 .
+
+ex:BlackBishop_c8 rdf:type ex:Bishop ;
+    rdfs:label "♝" ;
+    ex:color "Black" ; ex:pieceValue 3 ;
+    ex:gridX 2 ; ex:gridY 7 .
+
+ex:BlackPawn_h7 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 7 ; ex:gridY 6 .
+
+ex:BlackPawn_g7 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 6 ; ex:gridY 6 .
+
+# === The DiscoveredCheck pattern (reified — describes the latent attack that becomes active after move) ===
+ex:DiscoveredCheck_after_Nxe7 rdf:type ex:DiscoveredCheck ;
+    rdfs:label "Discovered Check (Bishop b3 → King g8 after Nxe7)" ;
+    rdfs:comment "Latent before the move; activated when Knight leaves d5. The Bishop's diagonal b3-c4-d5-e6-f7-g8 becomes clear, putting Black King in check from the Bishop on b3." ;
+    ex:discoveredBy ex:WhiteBishop_b3 ;
+    ex:focusedOn ex:BlackKing_g8 ;
+    ex:throughLine ex:d5 .
+
+# === The killing move — captures Queen AND triggers Discovered Check ===
+# Multi-typed: it's a Capture AND a Check AND a DoubleThreatMove (reasoner-derived).
+ex:Move_Nxe7 rdf:type ex:CaptureMove, ex:CheckMove, ex:DoubleThreatMove ;
+    rdfs:label "Nxe7+" ;
+    rdfs:comment "The devastating move. Knight captures Queen on e7 (direct gain: +9 material), AND by leaving d5 the move REVEALS the Bishop's attack on the Black King (Discovered Check). Black MUST respond to the check first — cannot recapture the Knight on e7 until the King is safe. Net outcome: Queen lost for free." ;
+    ex:from ex:d5 ;
+    ex:to ex:e7 ;
+    ex:movedPiece ex:WhiteKnight_d5 ;
+    ex:captures ex:BlackQueen_e7 ;
+    ex:creates ex:DiscoveredCheck_after_Nxe7 ;
+    ex:resultsInCheck ex:BlackKing_g8 .

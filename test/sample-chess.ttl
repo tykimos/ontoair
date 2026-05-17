@@ -1,0 +1,207 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/chess#> .
+
+ex:Ontology rdf:type owl:Ontology ;
+    rdfs:label "Chess: Italian Game after 4.Ng5 — f7 double attack + tactical reasoning" ;
+    rdfs:comment "FEN: r1bqkbnr/pppp1ppp/2n5/4p1N1/2B1P3/8/PPPP1PPP/RNBQK2R b KQkq - 0 4. Demonstrates three layers: (1) base ABox facts, (2) ontology-reasoner-derived types (WeakSquare, DoubleAttackedTarget, TacticalCandidateMove), (3) reified tactical patterns (DoubleAttack) exploited by candidate moves." ;
+    ex:gridDimX 8 ;
+    ex:gridDimY 8 .
+
+# === TBox — Piece hierarchy ===
+ex:Piece rdf:type owl:Class ; rdfs:label "Piece" .
+ex:King rdf:type owl:Class ; rdfs:label "King" ; rdfs:subClassOf ex:Piece .
+ex:Queen rdf:type owl:Class ; rdfs:label "Queen" ; rdfs:subClassOf ex:Piece .
+ex:Rook rdf:type owl:Class ; rdfs:label "Rook" ; rdfs:subClassOf ex:Piece .
+ex:Bishop rdf:type owl:Class ; rdfs:label "Bishop" ; rdfs:subClassOf ex:Piece .
+ex:Knight rdf:type owl:Class ; rdfs:label "Knight" ; rdfs:subClassOf ex:Piece .
+ex:Pawn rdf:type owl:Class ; rdfs:label "Pawn" ; rdfs:subClassOf ex:Piece .
+
+# Reasoner-derived Piece subtype: |attackers(X)| ≥ 2 ⇒ X a DoubleAttackedTarget
+ex:DoubleAttackedTarget rdf:type owl:Class ;
+    rdfs:label "Double-attacked Target" ;
+    rdfs:subClassOf ex:Piece ;
+    rdfs:comment "Reasoner rule: piece attacked by ≥2 opposite-color pieces" .
+
+# === TBox — Square hierarchy ===
+ex:Square rdf:type owl:Class ; rdfs:label "Square" .
+
+# Reasoner-derived Square subtype: |attackers(sq)| > |defenders(sq)| ⇒ sq a WeakSquare
+ex:WeakSquare rdf:type owl:Class ;
+    rdfs:label "Weak Square" ;
+    rdfs:subClassOf ex:Square ;
+    rdfs:comment "Reasoner rule: a square where attackers outnumber defenders" .
+
+# === TBox — Tactical patterns (reified multi-participant relations) ===
+ex:TacticalPattern rdf:type owl:Class ; rdfs:label "Tactical Pattern" .
+ex:DoubleAttack rdf:type owl:Class ; rdfs:label "Double Attack" ; rdfs:subClassOf ex:TacticalPattern .
+ex:Fork rdf:type owl:Class ; rdfs:label "Fork" ; rdfs:subClassOf ex:TacticalPattern .
+ex:Pin rdf:type owl:Class ; rdfs:label "Pin" ; rdfs:subClassOf ex:TacticalPattern .
+ex:Skewer rdf:type owl:Class ; rdfs:label "Skewer" ; rdfs:subClassOf ex:TacticalPattern .
+
+# === TBox — Move hierarchy ===
+ex:Move rdf:type owl:Class ; rdfs:label "Move" .
+ex:CaptureMove rdf:type owl:Class ; rdfs:label "Capture" ; rdfs:subClassOf ex:Move ;
+    rdfs:comment "Reasoner rule: Move ∃captures.Piece ⇒ a CaptureMove" .
+ex:CheckMove rdf:type owl:Class ; rdfs:label "Check" ; rdfs:subClassOf ex:Move ;
+    rdfs:comment "Reasoner rule: Move resultsInCheck.King ⇒ a CheckMove" .
+
+# Reasoner-derived Move subtype: Move exploits.TacticalPattern ⇒ a TacticalCandidateMove
+ex:TacticalCandidateMove rdf:type owl:Class ;
+    rdfs:label "Tactical Candidate Move" ;
+    rdfs:subClassOf ex:Move ;
+    rdfs:comment "Reasoner rule: Move exploits.TacticalPattern OR creates.TacticalPattern ⇒ a TacticalCandidateMove" .
+
+# === ObjectProperties — base facts ===
+ex:locatedAt rdf:type owl:ObjectProperty ; rdfs:domain ex:Piece ; rdfs:range ex:Square .
+ex:attacks rdf:type owl:ObjectProperty ; rdfs:label "attacks" ; rdfs:domain ex:Piece ; rdfs:range ex:Piece .
+ex:defends rdf:type owl:ObjectProperty ; rdfs:label "defends" ; rdfs:domain ex:Piece ; rdfs:range ex:Piece .
+
+# Reified pattern membership
+ex:participantOf rdf:type owl:ObjectProperty ; rdfs:label "participantOf" ; rdfs:domain ex:Piece ; rdfs:range ex:TacticalPattern .
+ex:focusedOn rdf:type owl:ObjectProperty ; rdfs:label "focusedOn" .
+
+# Move semantics
+ex:movedPiece rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Piece .
+ex:from rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Square .
+ex:to rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Square .
+ex:captures rdf:type owl:ObjectProperty ; rdfs:domain ex:Move ; rdfs:range ex:Piece .
+
+# 'creates' is reserved for moves that bring a NEW tactical pattern into existence.
+# 'exploits' is for moves that utilize a pattern that ALREADY exists in the current position.
+# This distinction matters because in the current position, DoubleAttack_on_f7 is ALREADY established —
+# the candidate moves don't create it, they cash it in.
+ex:creates rdf:type owl:ObjectProperty ; rdfs:label "creates" ; rdfs:domain ex:Move ; rdfs:range ex:TacticalPattern ;
+    rdfs:comment "Move brings a new tactical pattern into existence (e.g., a knight jumping to a fork square)" .
+ex:exploits rdf:type owl:ObjectProperty ; rdfs:label "exploits" ; rdfs:domain ex:Move ; rdfs:range ex:TacticalPattern ;
+    rdfs:comment "Move utilizes a pre-existing tactical pattern in the current position" .
+
+ex:resultsInCheck rdf:type owl:ObjectProperty ; rdfs:label "resultsInCheck" ; rdfs:domain ex:Move ; rdfs:range ex:King ;
+    rdfs:comment "After this move, the listed King is in check" .
+
+# === DatatypeProperties ===
+ex:color rdf:type owl:DatatypeProperty ; rdfs:range xsd:string .
+ex:pieceValue rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:file rdf:type owl:DatatypeProperty ; rdfs:range xsd:string .
+ex:rank rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridX rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+ex:gridY rdf:type owl:DatatypeProperty ; rdfs:range xsd:integer .
+
+# === ABox — Key squares (full 8×8 board comes from gridDimX/Y) ===
+# Note: f7 is multi-typed as WeakSquare — this would be reasoner-derived from |attackers|>|defenders|.
+ex:f7 rdf:type ex:Square, ex:WeakSquare ;
+    rdfs:label "f7" ;
+    rdfs:comment "Derived weak square: 2 attackers (Knight, Bishop) vs 1 defender (King)" ;
+    ex:gridX 5 ; ex:gridY 6 .
+ex:g5 rdf:type ex:Square ; rdfs:label "g5" ; ex:gridX 6 ; ex:gridY 4 .
+ex:c4 rdf:type ex:Square ; rdfs:label "c4" ; ex:gridX 2 ; ex:gridY 3 .
+
+# === ABox — White pieces ===
+ex:WhiteKnight_g5 rdf:type ex:Knight ;
+    rdfs:label "♘" ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:file "g" ; ex:rank 5 ;
+    ex:gridX 6 ; ex:gridY 4 ;
+    ex:locatedAt ex:g5 ;
+    ex:attacks ex:BlackPawn_f7, ex:BlackPawn_h7, ex:BlackPawn_e6 ;
+    ex:defends ex:WhitePawn_e4 .
+
+ex:WhiteBishop_c4 rdf:type ex:Bishop ;
+    rdfs:label "♗" ;
+    ex:color "White" ; ex:pieceValue 3 ;
+    ex:file "c" ; ex:rank 4 ;
+    ex:gridX 2 ; ex:gridY 3 ;
+    ex:locatedAt ex:c4 ;
+    ex:attacks ex:BlackPawn_f7 .
+
+ex:WhitePawn_e4 rdf:type ex:Pawn ;
+    rdfs:label "♙" ;
+    ex:color "White" ; ex:pieceValue 1 ;
+    ex:gridX 4 ; ex:gridY 3 ;
+    ex:attacks ex:BlackPawn_e5 .
+
+ex:WhiteKing_e1 rdf:type ex:King ;
+    rdfs:label "♔" ;
+    ex:color "White" ; ex:pieceValue 0 ;
+    ex:gridX 4 ; ex:gridY 0 .
+
+ex:WhiteQueen_d1 rdf:type ex:Queen ;
+    rdfs:label "♕" ;
+    ex:color "White" ; ex:pieceValue 9 ;
+    ex:gridX 3 ; ex:gridY 0 ;
+    ex:defends ex:WhiteBishop_c4, ex:WhitePawn_e4 .
+
+# === ABox — Black pieces ===
+# Note: BlackPawn_f7 multi-typed as DoubleAttackedTarget — reasoner-derivable from |attackers|≥2.
+ex:BlackPawn_f7 rdf:type ex:Pawn, ex:DoubleAttackedTarget ;
+    rdfs:label "♟" ;
+    rdfs:comment "Derived double-attacked target: attacked by Knight g5 AND Bishop c4" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 5 ; ex:gridY 6 ;
+    ex:locatedAt ex:f7 .
+
+ex:BlackKing_e8 rdf:type ex:King ;
+    rdfs:label "♚" ;
+    ex:color "Black" ; ex:pieceValue 0 ;
+    ex:gridX 4 ; ex:gridY 7 ;
+    ex:defends ex:BlackPawn_f7 .
+
+ex:BlackKnight_c6 rdf:type ex:Knight ;
+    rdfs:label "♞" ;
+    ex:color "Black" ; ex:pieceValue 3 ;
+    ex:gridX 2 ; ex:gridY 5 ;
+    ex:defends ex:BlackPawn_e5 .
+
+ex:BlackPawn_e5 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 4 ; ex:gridY 4 .
+
+ex:BlackPawn_h7 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 7 ; ex:gridY 6 .
+
+ex:BlackPawn_e6 rdf:type ex:Pawn ;
+    rdfs:label "♟" ;
+    ex:color "Black" ; ex:pieceValue 1 ;
+    ex:gridX 4 ; ex:gridY 5 .
+
+ex:BlackQueen_d8 rdf:type ex:Queen ;
+    rdfs:label "♛" ;
+    ex:color "Black" ; ex:pieceValue 9 ;
+    ex:gridX 3 ; ex:gridY 7 .
+
+# === Reified tactical pattern (pre-existing in this position) ===
+# The DoubleAttack is a STATE of the current position, not something a move creates.
+# Two White pieces converge on f7 — this geometric/threat fact exists right now.
+ex:DoubleAttack_on_f7 rdf:type ex:DoubleAttack ;
+    rdfs:label "Double Attack on f7" ;
+    rdfs:comment "Pre-existing tactical state: White Knight (g5) and White Bishop (c4) both threaten f7, defended only by Black King. Candidate moves Nxf7 and Bxf7+ 'exploit' (not 'create') this pattern." ;
+    ex:focusedOn ex:f7 ;
+    ex:participantOf ex:WhiteKnight_g5 ;
+    ex:participantOf ex:WhiteBishop_c4 .
+
+# === Candidate moves — multi-typed (TacticalCandidateMove via 'exploits') ===
+# Move_Nxf7 uses 'exploits' instead of 'creates' — DoubleAttack already exists, this cashes it in.
+ex:Move_Nxf7 rdf:type ex:CaptureMove, ex:TacticalCandidateMove ;
+    rdfs:label "Nxf7" ;
+    rdfs:comment "Cashes the double attack with the knight. After ...Kxf7 Black King is exposed, leading into the Fried Liver Attack (Qf3+/Nc3 follow-up). 'Exploits' rather than 'creates' the pre-existing DoubleAttack." ;
+    ex:from ex:g5 ;
+    ex:to ex:f7 ;
+    ex:movedPiece ex:WhiteKnight_g5 ;
+    ex:captures ex:BlackPawn_f7 ;
+    ex:exploits ex:DoubleAttack_on_f7 .
+
+# Move_Bxf7+ also exploits the DoubleAttack AND results in check.
+ex:Move_Bxf7 rdf:type ex:CaptureMove, ex:CheckMove, ex:TacticalCandidateMove ;
+    rdfs:label "Bxf7+" ;
+    rdfs:comment "Bishop sacrifice variant — also exploits the DoubleAttack but additionally gives check, forcing Black King's hand immediately." ;
+    ex:from ex:c4 ;
+    ex:to ex:f7 ;
+    ex:movedPiece ex:WhiteBishop_c4 ;
+    ex:captures ex:BlackPawn_f7 ;
+    ex:exploits ex:DoubleAttack_on_f7 ;
+    ex:resultsInCheck ex:BlackKing_e8 .

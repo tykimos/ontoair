@@ -31,12 +31,30 @@ body.src-collapsed #src-resize{display:none}
 #tooltip{position:fixed;display:none;z-index:100;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 14px;font-size:12px;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,0.1);max-width:360px}
 .tn{font-weight:700;font-size:13px}.tt{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
 .tu{font-size:10px;color:#bbb;margin-top:4px;word-break:break-all}.tp{margin-top:6px;font-size:11px;color:#666;line-height:1.5}
-.tl{font-size:11px;color:#444;margin-top:2px;font-weight:500}.tl:empty{display:none}
 .tc{font-size:10px;color:#888;font-style:italic;margin-top:6px;line-height:1.45}.tc:empty{display:none}
+.dp-table{margin-top:8px;border:1px solid #ddd;border-radius:6px;overflow:hidden}
+.dp-titlebar{background:#1c1c1c;color:#fff;padding:5px 10px;font-size:11px;font-weight:600;font-family:'SF Mono',Menlo,Monaco,monospace;letter-spacing:.2px}
+.dp-row{padding:4px 10px;font-size:11px;color:#555;border-top:1px solid #eee;font-family:'SF Mono',Menlo,Monaco,monospace}
+.dp-table .dp-row:first-child{border-top:none}
 #controls{position:fixed;bottom:16px;right:16px;z-index:10;display:flex;gap:6px}
 #controls button{background:#fff;border:1px solid #ddd;border-radius:8px;padding:7px 16px;color:#555;font-size:11px;cursor:pointer;transition:all .15s}
 #controls button:hover{background:#f5f5f5;border-color:#ccc}
 #controls button.active{background:#333;color:#fff;border-color:#333}
+#controls #brec.recording{background:#c62828;color:#fff;border-color:#a31515}
+#controls #brec.recording::before{content:'● ';color:#fff;animation:rec-pulse 1s infinite}
+#controls button.ctrl-badge{background:#eaf2ff;color:#1c4f99;border-color:#b9d3f3;letter-spacing:.5px;font-weight:600}
+#controls button.ctrl-badge:hover{background:#d6e6fc;border-color:#8fb6e8}
+#controls button.ctrl-badge.active-map{background:#1c4f99;color:#fff;border-color:#1c4f99}
+@keyframes rec-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+#rec-status{position:fixed;bottom:60px;right:16px;z-index:10;background:rgba(0,0,0,0.78);color:#fff;font-size:11px;padding:6px 10px;border-radius:6px;display:none;font-family:'SF Mono',Menlo,monospace}
+#map-attrib{position:fixed;bottom:60px;right:16px;z-index:9;font-size:9px;color:#888;background:rgba(255,255,255,0.88);padding:2px 8px;border-radius:4px;border:1px solid #eee;display:none;font-family:'SF Pro',system-ui,sans-serif}
+#map-attrib a{color:#666;text-decoration:none}#map-attrib a:hover{text-decoration:underline}
+#depth-dial{position:fixed;bottom:16px;left:calc(var(--src-w) + 16px);z-index:18;display:none;flex-direction:column;align-items:center;gap:4px;width:96px;transition:left 0.22s;font-family:'SF Pro',system-ui,sans-serif;pointer-events:none}
+body.src-collapsed #depth-dial{left:38px}
+#depth-dial.active{display:flex}
+#depth-dial svg{width:96px;height:96px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.08))}
+#depth-dial .dial-label{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+#depth-needle{transform-origin:0 0;transition:transform .18s cubic-bezier(.2,.7,.3,1)}
 #search{position:fixed;top:16px;right:16px;z-index:10;background:rgba(255,255,255,0.94);border:1px solid #e0e0e0;border-radius:8px;padding:8px 14px;font-size:12px;width:200px;outline:none;box-shadow:0 2px 8px rgba(0,0,0,0.04)}
 #search:focus{border-color:#999;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
 #kbd-hint{position:fixed;top:16px;left:calc(var(--src-w) + 16px);z-index:15;background:rgba(255,255,255,0.92);border:1px solid #e0e0e0;border-radius:6px;padding:5px 10px;font-family:'SF Pro',system-ui,-apple-system,sans-serif;font-size:10px;color:#777;line-height:1.5;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:left 0.22s;pointer-events:none}
@@ -66,6 +84,8 @@ body.src-collapsed #kbd-hint{left:38px}
     <div class='li'><svg class='ls' viewBox='0 0 30 10'><line x1='1' y1='5' x2='29' y2='5' stroke='#aaa' stroke-width='1' stroke-dasharray='2 2'/></svg>rdf:type</div>
     <div class='li'><svg class='ls' viewBox='0 0 30 14'><polyline points='2,10 9,3 28,3' fill='none' stroke='#888' stroke-width='1.2'/></svg>DatatypeProperty</div>
   </div>
+  <h4>Filter Edges</h4>
+  <div class='panel' id='edge-filter-panel'><div class='sub'>Loading…</div></div>
   <h4>Source</h4>
   <div id='src-body'></div>
 </aside>
@@ -77,15 +97,34 @@ body.src-collapsed #kbd-hint{left:38px}
   <input type='file' id='tboxSel' accept='.owl,.rdf,.ttl,.trig'>
   <button id='tboxClose' title='닫기'>×</button>
 </div>
-<div id='tooltip'><div class='tn' id='ttn'></div><div class='tl' id='ttl'></div><div class='tt' id='ttt'></div><div class='tu' id='ttu'></div><div class='tc' id='ttc'></div><div class='tp' id='ttp'></div></div>
+<div id='tooltip'><div class='tn' id='ttn'></div><div class='tt' id='ttt'></div><div class='tu' id='ttu'></div><div class='tc' id='ttc'></div><div class='tp' id='ttp'></div></div>
+<div id='depth-dial'>
+  <svg viewBox='-50 -50 100 100' aria-hidden='true'>
+    <circle cx='0' cy='0' r='42' fill='#fff' stroke='#e0e0e0' stroke-width='2'/>
+    <g id='depth-ticks' fill='#aaa' font-family='SF Mono,Menlo,monospace' font-size='8' text-anchor='middle' dominant-baseline='central'></g>
+    <g id='depth-needle' transform='rotate(0)'>
+      <line x1='0' y1='-26' x2='0' y2='-40' stroke='#c62828' stroke-width='3' stroke-linecap='round'/>
+    </g>
+    <circle cx='0' cy='0' r='18' fill='#1c1c1c'/>
+    <text id='depth-num' x='0' y='0' text-anchor='middle' dominant-baseline='central' font-size='17' fill='#fff' font-weight='700' font-family='SF Mono,Menlo,monospace'>1</text>
+  </svg>
+  <div class='dial-label'>BFS Depth</div>
+</div>
 <input type='text' id='search' placeholder='Search nodes...'>
 <div id='controls'>
+  <button id='bgeomap' class='ctrl-badge' title='Geo / orbit detected — flat Mercator map' style='display:none'>MAP</button>
+  <button id='bgeoglobe' class='ctrl-badge' title='Geo / orbit detected — 3D globe' style='display:none'>GLOBE</button>
+  <button id='bgrid' class='ctrl-badge' title='Grid coordinates detected (gridX/gridY)' style='display:none'>GRID</button>
   <button id='bh' class='active'>Hierarchy</button>
   <button id='bf'>Force</button>
   <button id='b2' title='2D layered layout with curved edges routed around obstructing nodes'>2D</button>
   <button id='bre' title='Run lightweight OWL reasoner: subClassOf transitivity, type propagation, equivalentClass intersectionOf+someValuesFrom'>Reason</button>
+  <button id='brec' title='Record canvas to MP4 + GIF'>Rec</button>
   <button id='br'>Reset</button>
 </div>
+<div id='rec-status'></div>
+<div id='map-attrib'>© <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a> · © <a href='https://carto.com/attributions' target='_blank'>CARTO</a></div>
+<script src='gif.js'></script>
 <script>{{THREE_JS}}</script>
 <script>{{ORBIT_JS}}</script>
 <script>
@@ -101,6 +140,8 @@ const FNAME='{{FNAME}}';
   const tboxClose=document.getElementById('tboxClose');
   if(!banner)return;
   if(window.O&&window.O.missingTBox)banner.style.display='flex';
+  if(window.O&&(window.O.hasGeo||window.O.hasOrbit)){const bm=document.getElementById('bgeomap');if(bm)bm.style.display='';const bg=document.getElementById('bgeoglobe');if(bg)bg.style.display='';}
+  if(window.O&&window.O.hasGrid){const bgr=document.getElementById('bgrid');if(bgr)bgr.style.display='';}
   if(tboxClose)tboxClose.addEventListener('click',()=>{banner.style.display='none';});
   function bridgeAvailable(){return !!(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.ontoair);}
   if(!bridgeAvailable()&&tboxSel){tboxSel.disabled=true;tboxSel.title='TBox 병합은 메인 앱에서만 지원됩니다';}
