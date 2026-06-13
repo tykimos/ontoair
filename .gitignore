@@ -1,6 +1,9 @@
 build/
 dist/
 search_images/
+
+# Generated web-service webroot (run scripts/build-web.sh to regenerate)
+/web/
 docs/
 ref/
 .DS_Store
@@ -24,3 +27,6 @@ __pycache__/
 # Demo media — too large for git, host outside the repo
 demo/*.mp4
 demo/*.mov
+
+# Server-side secrets
+.env

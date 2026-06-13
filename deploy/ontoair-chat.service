@@ -1,0 +1,16 @@
+[Unit]
+Description=OntoAir chat backend (Azure OpenAI proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/poc/ontoair
+ExecStart=/home/ubuntu/.nvm/versions/node/v20.18.0/bin/node /home/ubuntu/poc/ontoair/server/ontoair-chat-server.js
+Restart=always
+RestartSec=3
+# Secrets/config are read from /home/ubuntu/poc/ontoair/.env by the server itself.
+
+[Install]
+WantedBy=multi-user.target

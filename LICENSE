@@ -1,0 +1,101 @@
+OntoAir License — Individual Research Use Only (Source-Available)
+Copyright (c) 2026 tykimos <tykim@aifactory.page>
+
+This is a SOURCE-AVAILABLE license. It is NOT an open-source license (it is not
+approved by the OSI) and it is NOT free software. All rights are reserved except
+the limited permission granted in Section 2.
+
+The "Software" means the original work in this repository authored by the
+copyright holder, excluding the Third-Party Components listed in Section 6.
+
+
+1. DEFINITIONS
+
+1.1 "Individual" means a single natural person acting solely on their own
+    behalf — NOT on behalf of, for the benefit of, or funded by any
+    organization, company, employer, institution, university, school,
+    research laboratory, government body, association, or other group.
+
+1.2 "Individual Research Use" means use of the Software by an Individual,
+    working alone, for that Individual's own private research, study,
+    learning, or evaluation, and for no other purpose.
+
+1.3 "Organizational, Educational, or Commercial Use" means any use that is
+    not Individual Research Use, including (without limitation):
+      (a) any use by, for, or on behalf of a company, institution, nonprofit,
+          government, association, team, or any other group of people;
+      (b) any educational or teaching use, including by or within
+          universities, schools, research laboratories, courses, training,
+          lectures, workshops, or seminars (whether or not a fee is charged);
+      (c) any use to provide a product or service to a third party, including
+          hosting the Software as a network/online service (SaaS);
+      (d) any use intended for or directed toward commercial advantage or
+          monetary compensation.
+
+
+2. GRANT FOR INDIVIDUAL RESEARCH USE
+
+Subject to the terms below, the copyright holder grants you, free of charge, a
+non-exclusive, non-transferable, non-sublicensable, revocable license to use,
+copy, modify, and run the Software SOLELY for Individual Research Use.
+
+
+3. USES THAT REQUIRE A SEPARATE AGREEMENT
+
+Any Organizational, Educational, or Commercial Use (Section 1.3) — including
+all use by universities and research laboratories, which are groups and are
+therefore NOT Individual Research Use — is NOT permitted under this license and
+REQUIRES a separate prior written agreement with the copyright holder.
+
+To request such an agreement, contact: tykim@aifactory.page
+
+
+4. CONDITIONS AND RESTRICTIONS
+
+4.1 You must retain this LICENSE file and all copyright and license notices in
+    all copies or modified versions of the Software.
+4.2 You may not remove, obscure, or alter any notices, nor represent the
+    Software as your own.
+4.3 You may not redistribute, publish, sublicense, sell, rent, or share the
+    Software or modified versions of it without a separate written agreement,
+    except that an Individual may keep private copies for their own
+    Individual Research Use.
+4.4 You may not use the names "OntoAir" or "tykimos" to endorse or promote
+    products derived from this Software without prior written permission.
+
+
+5. TERMINATION
+
+This license terminates automatically if you breach any of its terms. Upon
+termination you must stop using and destroy all copies of the Software. Use
+beyond the grant in Section 2 without an agreement under Section 3 is an
+infringement of the copyright holder's rights.
+
+
+6. THIRD-PARTY COMPONENTS
+
+The Software is distributed together with third-party components that are
+licensed under their own separate terms (e.g., three.js, OrbitControls,
+satellite.js, gif.js, and Google MediaPipe — see THIRD_PARTY_NOTICES.md).
+This license does NOT apply to, restrict, or replace those components; they
+remain governed by their respective licenses, and their notices must be kept.
+
+
+7. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+
+8. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING
+FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+IN THE SOFTWARE.
+
+----------------------------------------------------------------------
+Summary (non-binding): Free only for a single individual doing their own
+research, alone. Any group, organization, university, lab, class, training,
+or commercial use — contact tykim@aifactory.page to arrange a license.

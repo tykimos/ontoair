@@ -110,4 +110,19 @@ At runtime the Swift code loads `template.html` + `ontoair.js` + `three.min.js` 
 
 ## License
 
-Add your usage policy here.
+**Source-available — Individual Research Use Only.** This is **not** open source.
+
+- ✅ **Free** for a single **individual** using it **alone** for their own
+  personal research, study, or evaluation.
+- 🤝 **Requires a prior agreement** for any **group, organizational, educational,
+  or commercial** use — this includes **universities and research laboratories**
+  (they are organizations, so they need an agreement), schools, companies,
+  nonprofits, government, courses, training, and offering it as a service.
+
+To arrange a license for any non-individual use, contact **tykim@aifactory.page**.
+
+See [`LICENSE`](LICENSE) for the binding terms and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+for bundled components (three.js, satellite.js, gif.js, MediaPipe, …), which keep
+their own licenses.
+
+Copyright © 2026 tykimos.

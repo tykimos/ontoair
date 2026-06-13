@@ -3,6 +3,16 @@
 <head>
 <meta charset='UTF-8'>
 <title>OntoAir Dev</title>
+<script>
+// Early-installed console + error capture so loading-modal diagnostics can read it.
+window.__oaConsole=[];
+(function(){const oE=console.error,oW=console.warn;
+console.error=function(){window.__oaConsole.push(['err',Array.from(arguments).map(a=>{try{return typeof a==='string'?a:(a&&a.message?a.message+(a.stack?' || '+String(a.stack).split('\n').slice(0,3).join(' >> '):''):JSON.stringify(a));}catch(e){return String(a);}}).join(' ')]);return oE.apply(console,arguments);};
+console.warn=function(){window.__oaConsole.push(['warn',Array.from(arguments).map(a=>String(a)).join(' ')]);return oW.apply(console,arguments);};
+window.addEventListener('error',e=>{window.__oaConsole.push(['err',(e.message||'unknown')+' @ '+(e.filename||'?')+':'+(e.lineno||'?')+':'+(e.colno||'?')]);});
+window.addEventListener('unhandledrejection',e=>{const r=e.reason;window.__oaConsole.push(['rej',(r&&r.message?r.message:String(r))+(r&&r.stack?' || '+String(r.stack).split('\n').slice(0,4).join(' >> '):'')]);});
+})();
+</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--src-w:340px}
@@ -65,9 +75,104 @@ body.src-collapsed #depth-dial{left:38px}
 #kbd-hint{position:fixed;top:16px;left:calc(var(--src-w) + 16px);z-index:15;background:rgba(255,255,255,0.92);border:1px solid #e0e0e0;border-radius:6px;padding:5px 10px;font-family:'SF Pro',system-ui,-apple-system,sans-serif;font-size:10px;color:#777;line-height:1.5;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:left 0.22s;pointer-events:none}
 #kbd-hint kbd{display:inline-block;padding:1px 5px;background:#f4f4f6;border:1px solid #d6d6d6;border-radius:3px;font-family:'SF Mono',Menlo,monospace;font-size:9px;color:#333;margin:0 2px}
 body.src-collapsed #kbd-hint{left:38px}
+/* Right file browser — mirrors #source styling */
+:root{--fb-w:340px}
+#filebrowser{position:fixed;right:0;top:0;bottom:0;width:var(--fb-w);background:#fafafa;border-left:1px solid #e0e0e0;overflow:hidden;z-index:5;display:flex;flex-direction:column;transition:transform 0.22s;color:#444;font-family:'SF Pro',system-ui,-apple-system,sans-serif}
+#filebrowser h4{padding:14px 16px 6px;font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:.8px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+#filebrowser h4 .fb-tag{background:#866b00;color:#fff;padding:2px 6px;border-radius:4px;font-weight:700;letter-spacing:.5px;font-size:9px}
+#filebrowser h4 .fb-count{color:#999;font-size:9px;font-weight:600}
+#filebrowser .fb-section{padding:6px 14px 12px;border-bottom:1px solid #ececec;font-size:11px;color:#555;line-height:1.55}
+#filebrowser .fb-section .sub{font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.5px;margin:4px 0 6px;font-weight:600}
+#filebrowser .fb-openbtn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid #d8d8d8;border-radius:6px;background:#fff;color:#444;font-size:11px;cursor:pointer;font-family:inherit;width:100%;justify-content:center;transition:all .15s}
+#filebrowser .fb-openbtn:hover{background:#f5f5f5;border-color:#bbb;color:#1c4f99}
+#filebrowser .fb-openbtn input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+#filebrowser .fb-hint{font-size:10px;color:#999;margin-top:6px;line-height:1.5}
+#filebrowser .fb-folders{flex:1;overflow-y:auto;padding:0}
+.fb-folder{margin:0}
+.fb-folder-head{padding:8px 16px;font-size:12px;color:#333;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:6px;border-bottom:1px solid #f0f0f0;user-select:none;background:#fff}
+.fb-folder-head:hover{background:#f5f5f5}
+.fb-folder-head .fb-fname{display:flex;align-items:center;gap:7px}
+.fb-folder-head .fb-chev{color:#aaa;font-size:10px;transition:transform 0.18s}
+.fb-folder.open .fb-folder-head{background:#f1f5fb;color:#1c4f99;border-bottom-color:#dde6f3}
+.fb-folder.open .fb-folder-head .fb-chev{transform:rotate(90deg);color:#1c4f99}
+.fb-folder.open .fb-folder-head .fb-fname{color:#1c4f99}
+.fb-folder-files{display:none;background:#fafafa;border-bottom:1px solid #ececec}
+.fb-folder.open .fb-folder-files{display:block}
+.fb-folder-desc{padding:4px 16px 8px 38px;font-size:10px;color:#888;line-height:1.5}
+.fb-file{padding:6px 14px 6px 38px;font-size:11px;color:#444;cursor:pointer;display:flex;align-items:center;gap:6px;line-height:1.4;border-bottom:1px solid #f6f6f6}
+.fb-file:last-child{border-bottom:none}
+.fb-file:hover{background:#fff;color:#1c4f99}
+.fb-file.active{background:#1c4f99;color:#fff;font-weight:600}
+.fb-file.active:hover{background:#1c4f99;color:#fff}
+.fb-file .fb-fbadge{font-size:9px;color:#999;background:#eee;padding:1px 5px;border-radius:3px;letter-spacing:.3px;flex-shrink:0;margin-left:auto}
+.fb-file.active .fb-fbadge{background:rgba(255,255,255,0.22);color:#fff}
+.fb-file .fb-fmeta{font-size:9px;color:#aaa;margin-left:6px}
+.fb-file.active .fb-fmeta{color:rgba(255,255,255,0.75)}
+#fb-resize{position:fixed;top:0;bottom:0;width:8px;background:transparent;cursor:col-resize;z-index:8;right:calc(var(--fb-w) - 4px);transition:right 0.22s}
+#fb-resize:hover{background:rgba(0,0,0,0.06)}
+#fb-toggle{position:fixed;top:16px;right:calc(var(--fb-w) - 18px);z-index:15;width:26px;height:26px;border:1px solid #d8d8d8;border-radius:6px;background:#fff;cursor:pointer;font-family:monospace;font-size:14px;color:#666;box-shadow:0 1px 4px rgba(0,0,0,0.05);transition:right 0.22s;display:flex;align-items:center;justify-content:center}
+#fb-toggle:hover{background:#f5f5f5}
+body.fb-collapsed #filebrowser{transform:translateX(100%)}
+body.fb-collapsed #fb-toggle{right:54px}
+body.fb-collapsed #fb-resize{display:none}
+/* When the right sidebar is open, shift right-anchored UI by --fb-w so it doesn't overlap. */
+#search,#controls,#reload-right,#rec-status,#map-attrib,#hc-toggle,#hc-panel{transition:right 0.22s}
+body:not(.fb-collapsed) #search,
+body:not(.fb-collapsed) #controls,
+body:not(.fb-collapsed) #reload-right,
+body:not(.fb-collapsed) #rec-status,
+body:not(.fb-collapsed) #map-attrib,
+body:not(.fb-collapsed) #hc-toggle,
+body:not(.fb-collapsed) #hc-panel{right:calc(var(--fb-w) + 16px)}
+/* Loading modal */
+#oa-loading{position:fixed;inset:0;background:rgba(15,20,30,0.55);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:9999;transition:opacity .25s}
+#oa-loading.show{display:flex}
+.oa-card{background:#fff;border-radius:14px;padding:24px 28px;min-width:420px;max-width:520px;box-shadow:0 24px 72px rgba(0,0,0,0.28)}
+.oa-title{font-size:16px;font-weight:600;color:#1c2a3a;display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.oa-spinner{width:16px;height:16px;border:2.5px solid #e0e6f0;border-top-color:#3a7bd5;border-radius:50%;animation:oaSpin .8s linear infinite;flex-shrink:0}
+@keyframes oaSpin{to{transform:rotate(360deg)}}
+.oa-file{font-size:11px;color:#7a8696;margin-bottom:14px;font-family:'SF Mono',Menlo,monospace;word-break:break-all}
+.oa-track{height:8px;background:#eef1f7;border-radius:4px;overflow:hidden}
+.oa-fill{height:100%;background:linear-gradient(90deg,#3a7bd5 0%,#5aa0e6 100%);width:0%;transition:width .2s ease-out;position:relative;overflow:hidden}
+.oa-fill.indet{width:100% !important;transition:none !important;background:repeating-linear-gradient(-45deg,#3a7bd5 0,#3a7bd5 14px,#5aa0e6 14px,#5aa0e6 28px) !important;background-size:40px 100% !important;animation:oaStripes .9s linear infinite}
+@keyframes oaStripes{to{background-position:40px 0}}
+.oa-sub-stages{margin-top:8px;padding:8px 0 0;border-top:1px dashed #eef1f7;font-size:11px;color:#7a8696;font-family:'SF Mono',Menlo,monospace;max-height:140px;overflow-y:auto}
+.oa-sub-stages .ss{padding:2px 0;display:flex;justify-content:space-between;gap:8px;animation:oaSlideIn .2s ease-out}
+.oa-sub-stages .ss .name{color:#2a7a4a}
+.oa-sub-stages .ss .val{color:#9aa5b5}
+@keyframes oaSlideIn{from{opacity:0;transform:translateY(-2px)}to{opacity:1;transform:none}}
+.oa-pct{font-size:10px;color:#7a8696;margin:5px 0 14px;text-align:right;font-family:'SF Mono',Menlo,monospace}
+.oa-stages{list-style:none;padding:0;margin:0;font-size:12px;color:#9aa5b5}
+.oa-stages li{padding:5px 0;display:flex;align-items:center;gap:8px;transition:color .15s}
+.oa-stages li .step{width:18px;height:18px;border-radius:50%;background:#eef1f7;color:#9aa5b5;font-size:10px;display:inline-flex;align-items:center;justify-content:center;font-weight:600;flex-shrink:0}
+.oa-stages li.active{color:#1c2a3a;font-weight:500}
+.oa-stages li.active .step{background:#3a7bd5;color:#fff}
+.oa-stages li.done{color:#2a7a4a}
+.oa-stages li.done .step{background:#2a7a4a;color:#fff}
+.oa-stages li.done .step::after{content:'✓';font-size:11px}
+.oa-stages li.done .step .num{display:none}
+.oa-stages li .label{flex:1}
+.oa-stages li .meta{font-size:10px;color:#9aa5b5;font-family:'SF Mono',Menlo,monospace}
+.oa-detail{font-size:11px;color:#7a8696;margin-top:12px;padding-top:10px;border-top:1px solid #eef1f7;font-family:'SF Mono',Menlo,monospace;min-height:14px}
 </style>
 </head>
 <body>
+<div id='oa-loading'>
+  <div class='oa-card'>
+    <div class='oa-title'><span class='oa-spinner'></span><span>Loading ontology</span></div>
+    <div class='oa-file' id='oa-file'>…</div>
+    <div class='oa-track'><div class='oa-fill' id='oa-fill'></div></div>
+    <div class='oa-pct' id='oa-pct'>0%</div>
+    <ul class='oa-stages'>
+      <li data-stage='fetch'><span class='step'><span class='num'>1</span></span><span class='label'>Fetch from server</span><span class='meta' id='oa-meta-fetch'></span></li>
+      <li data-stage='parse'><span class='step'><span class='num'>2</span></span><span class='label'>Parse RDF triples</span><span class='meta' id='oa-meta-parse'></span></li>
+      <li data-stage='build'><span class='step'><span class='num'>3</span></span><span class='label'>Build scene graph</span><span class='meta' id='oa-meta-build'></span></li>
+      <li data-stage='layout'><span class='step'><span class='num'>4</span></span><span class='label'>Layout &amp; render</span><span class='meta' id='oa-meta-layout'></span></li>
+    </ul>
+    <div class='oa-detail' id='oa-detail'>Initializing…</div>
+    <div class='oa-sub-stages' id='oa-sub-stages'></div>
+  </div>
+</div>
 <aside id='source'>
   <h4>OntoAir</h4>
   <div class='panel'>
@@ -96,26 +201,6 @@ body.src-collapsed #kbd-hint{left:38px}
 <div id='kbd-hint'><kbd>D</kbd> DP팝업 토글 · <kbd>⌘</kbd>+클릭 노드 격리 · <kbd>Esc</kbd> 격리 해제 · <kbd>⌘</kbd>+<kbd>±</kbd> 라벨 크기</div>
 <button class='reload-btn' id='reload-left' title='Reload'>⟳</button>
 <button class='reload-btn' id='reload-right' title='Reload'>⟳</button>
-<div id='devbar'>
-  <span class='tag'>DEV</span>
-  <select id='sampleSel'>
-    <option value=''>— load sample —</option>
-    <option value='../test/sample.ttl'>sample.ttl</option>
-    <option value='../test/sample.owl'>sample.owl</option>
-    <option value='../test/sample.rdf'>sample.rdf</option>
-    <option value='../test/sample.trig'>sample.trig</option>
-    <option value='../test/sample-geo.ttl'>sample-geo.ttl</option>
-    <option value='../test/sample-orbit.ttl'>sample-orbit.ttl</option>
-    <option value='../test/sample-chess.ttl'>sample-chess.ttl (Double Attack)</option>
-    <option value='../test/sample-chess-pin.ttl'>sample-chess-pin.ttl (Pin)</option>
-    <option value='../test/sample-chess-fork.ttl'>sample-chess-fork.ttl (Fork)</option>
-    <option value='../test/sample-chess-discovered.ttl'>sample-chess-discovered.ttl (Discovered Check)</option>
-    <option value='../examples/taeyoung.ttl'>taeyoung.ttl</option>
-    <option value='../test/assiworks.ttl'>assiworks.ttl</option>
-    <option value='../test/tbox.ttl|../test/abox.trig'>tbox.ttl + abox.trig</option>
-  </select>
-  <input type='file' id='fileSel' accept='.owl,.rdf,.ttl,.trig' multiple title='여러 파일 선택 시 자동으로 병합'>
-</div>
 <div id='tbox-banner' style='display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:25;background:#fff8e0;border:1px solid #e0b850;border-radius:8px;padding:10px 16px;font-size:12px;color:#7a5a00;box-shadow:0 4px 14px rgba(0,0,0,0.08);display:none;align-items:center;gap:10px'>
   <span>⚠️ TBox 정의 없이 ABox만 로드된 것 같습니다. 스키마(클래스/속성 라벨)를 보강하려면 TBox 파일도 함께 선택하세요.</span>
   <input type='file' id='tboxSel' accept='.owl,.rdf,.ttl,.trig' style='font-size:11px'>
@@ -139,6 +224,8 @@ body.src-collapsed #kbd-hint{left:38px}
   <button id='bgeomap' class='ctrl-badge' title='Geo / orbit detected — flat Mercator map' style='display:none'>MAP</button>
   <button id='bgeoglobe' class='ctrl-badge' title='Geo / orbit detected — 3D globe' style='display:none'>GLOBE</button>
   <button id='bgrid' class='ctrl-badge' title='Grid coordinates detected (gridX/gridY)' style='display:none'>GRID</button>
+  <button id='bbody' class='ctrl-badge' title='Anatomy anchors detected (bodyAnchor) — human-body map' style='display:none'>BODY</button>
+  <button id='bscenes' class='ctrl-badge active' title='Scene observations (OpticalObservation, Obs_*) — 위성이 촬영한 씬 핀 ON/OFF' style='display:none'>📷 Scenes</button>
   <button id='bh' class='active'>Hierarchy</button>
   <button id='bf'>Force</button>
   <button id='b2' title='2D layered layout with curved edges routed around obstructing nodes'>2D</button>
@@ -154,17 +241,427 @@ body.src-collapsed #kbd-hint{left:38px}
 <script src='satellite.min.js'></script>
 <script>
 function fmtOf(name){const e=name.toLowerCase().split('.').pop();if(e==='ttl'||e==='trig')return 'ttl';return e;}
-function loadScript(){
+window.OAProgress={
+  stages:['fetch','parse','build','layout'],
+  startMs:0,subStart:0,
+  show(filename){
+    document.getElementById('oa-file').textContent=filename;
+    document.getElementById('oa-loading').classList.add('show');
+    this.startMs=performance.now();
+    this.setStage('fetch',0,'Preparing request…');
+    document.getElementById('oa-sub-stages').innerHTML='';
+    this._setIndet(false);
+  },
+  _setIndet(on){
+    const fill=document.getElementById('oa-fill');if(!fill)return;
+    if(on){fill.style.width='';fill.style.background='';fill.classList.add('indet');}
+    else{fill.classList.remove('indet');}
+    const pctEl=document.getElementById('oa-pct');if(pctEl)pctEl.style.visibility=on?'hidden':'';
+  },
+  setStage(stage,pct,detail){
+    const idx=this.stages.indexOf(stage);
+    this.stages.forEach((s,i)=>{
+      const li=document.querySelector(`#oa-loading li[data-stage="${s}"]`);
+      if(!li)return;
+      li.classList.toggle('active',i===idx);
+      li.classList.toggle('done',i<idx);
+    });
+    if(typeof pct==='number'){
+      const fill=document.getElementById('oa-fill');
+      const pctEl=document.getElementById('oa-pct');
+      if(fill&&!fill.classList.contains('indet'))fill.style.width=pct+'%';
+      if(pctEl)pctEl.textContent=pct.toFixed(0)+'%';
+    }
+    if(detail!==undefined){const d=document.getElementById('oa-detail');if(d)d.textContent=detail;}
+  },
+  setIndeterminate(stage,detail){
+    this.setStage(stage,null,detail);
+    this._setIndet(true);
+    this.subStart=performance.now();
+  },
+  setDeterminate(){this._setIndet(false);},
+  setMeta(stage,text){const m=document.getElementById('oa-meta-'+stage);if(m)m.textContent=text;},
+  addSubStage(label,detail){
+    const el=document.getElementById('oa-sub-stages');if(!el)return;
+    const row=document.createElement('div');row.className='ss';
+    const dt=this.subStart?((performance.now()-this.subStart)/1000).toFixed(2)+'s':'';
+    row.innerHTML=`<span class='name'>✓ ${label}</span><span class='val'>${detail||''} ${dt?'· '+dt:''}</span>`;
+    el.appendChild(row);el.scrollTop=el.scrollHeight;
+    this.subStart=performance.now();
+  },
+  fmtBytes(n){if(n<1024)return n+' B';if(n<1048576)return(n/1024).toFixed(1)+' KB';return(n/1048576).toFixed(2)+' MB';},
+  bytes(downloaded,total){
+    const txt=total?`${this.fmtBytes(downloaded)} / ${this.fmtBytes(total)}`:this.fmtBytes(downloaded);
+    this.setMeta('fetch',txt);
+    if(total){const fp=(downloaded/total)*30;this.setStage('fetch',fp,`Downloading… ${txt}`);}
+    else{this.setStage('fetch',5,`Downloading… ${txt}`);}
+  },
+  finishFetch(totalBytes){
+    this.setStage('fetch',30,`Fetched ${this.fmtBytes(totalBytes)}`);
+    this.addSubStage('Fetched',this.fmtBytes(totalBytes));
+    this.setMeta('fetch',this.fmtBytes(totalBytes));
+  },
+  hide(){
+    const elapsed=performance.now()-this.startMs;
+    const minVisible=600;
+    this._setIndet(false);
+    setTimeout(()=>{const el=document.getElementById('oa-loading');if(el){el.style.opacity='0';setTimeout(()=>{el.classList.remove('show');el.style.opacity='1';},280);}},Math.max(0,minVisible-elapsed));
+  },
+  error(msg,stage){this.setStage(stage||'fetch',stage==='build'?85:0,'Error: '+msg);this._setIndet(false);}
+};
+// Phase callback invoked synchronously by ontoair.js's parseTTL at sub-stage boundaries.
+// Calls during sync execution won't repaint (CSS stripes show "working"); but the recorded
+// sub-stages appear in the modal as soon as the browser yields after parse completes.
+window.__oaPhase=function(label,detail){try{OAProgress.addSubStage(label,detail||'');}catch(e){}};
+async function fetchWithProgress(paths){
+  const results=[];let totalBytes=0;
+  for(let i=0;i<paths.length;i++){
+    const p=paths[i];const url=p+(p.includes('?')?'&':'?')+'_t='+Date.now();
+    const res=await fetch(url,{cache:'no-store'});
+    if(!res.ok)throw p;
+    const total=+res.headers.get('content-length')||0;
+    if(!res.body||!res.body.getReader){const t=await res.text();results.push(t);totalBytes+=t.length;OAProgress.bytes(totalBytes,total);continue;}
+    const reader=res.body.getReader();const chunks=[];let received=0;
+    while(true){const{done,value}=await reader.read();if(done)break;chunks.push(value);received+=value.length;OAProgress.bytes(totalBytes+received,total?totalBytes+total:0);}
+    const blob=new Blob(chunks);const text=await blob.text();results.push(text);totalBytes+=received;
+  }
+  return{texts:results,totalBytes};
+}
+async function parseInWorker(ttl){
+  return new Promise((resolve,reject)=>{
+    OAProgress.addSubStage('Spawning Web Worker','parser-worker.js');
+    let worker;try{worker=new Worker('parser-worker.js?'+Date.now());}catch(e){return reject(e);}
+    OAProgress.addSubStage('Worker spawned',(ttl.length/1048576).toFixed(2)+' MB sent');
+    worker.onmessage=(ev)=>{
+      const m=ev.data;
+      if(m.type==='phase'){OAProgress.addSubStage(m.label,m.detail||'');}
+      else if(m.type==='progress'){
+        const pct=30+(m.done/m.total)*55;  // parse stage spans 30%→85%
+        OAProgress.setDeterminate();
+        OAProgress.setStage('parse',pct,`Parsing… ${m.done.toLocaleString()} / ${m.total.toLocaleString()} statements (${m.clsCnt} cls · ${m.indCnt} indiv)`);
+      }
+      else if(m.type==='done'){worker.terminate();resolve(m.result);}
+      else if(m.type==='error'){worker.terminate();reject(new Error(m.error));}
+    };
+    worker.onerror=(e)=>{worker.terminate();reject(e);};
+    worker.postMessage({ttl});
+  });
+}
+async function loadScript(){
+  // Parse in Worker first — gives the main thread room to repaint with REAL percentage progress.
+  // Only TTL is worker-parsed (parseXML needs DOMParser which workers lack).
+  if(window.FMT==='ttl'&&typeof Worker==='function'){
+    try{
+      OAProgress.setStage('parse',30,'Starting parser worker…');
+      const parsed=await parseInWorker(window.RAW);
+      window.__oaPrePO=parsed;
+      const O=parsed;
+      const stats=`${O.cls.length} cls · ${O.ind.length} indiv${O.satellites&&O.satellites.length?' · '+O.satellites.length+' sats':''}${O.geo&&O.geo.nodes&&O.geo.nodes.length?' · '+O.geo.nodes.length+' geo':''}`;
+      OAProgress.setMeta('parse',stats);
+      OAProgress.addSubStage('Parse complete',stats);
+      // Build stage will block the main thread while ontoair.js sets up meshes/labels for
+      // 10K+ nodes. Switch to indeterminate stripes so user sees activity, not a stuck 85%.
+      OAProgress.setIndeterminate('build',`Building ${(O.cls.length+O.ind.length).toLocaleString()} node meshes + labels…`);
+      await new Promise(r=>setTimeout(r,30));
+    }catch(e){
+      OAProgress.addSubStage('Worker failed',e.message+' — falling back to sync parse');
+      OAProgress.setIndeterminate('parse','Falling back to sync parse (may block UI)…');
+      await new Promise(r=>setTimeout(r,30));
+    }
+  }else{
+    OAProgress.setIndeterminate('parse','Parsing (non-TTL format, sync)…');
+    await new Promise(r=>setTimeout(r,30));
+  }
+  const startScript=performance.now();
   const s=document.createElement('script');s.src='ontoair.js?'+Date.now();
-  s.onerror=()=>alert('ontoair.js load failed');
-  s.onload=()=>{
+  s.onerror=()=>{OAProgress.error('ontoair.js load failed');alert('ontoair.js load failed');};
+  s.onload=async()=>{
+    // ontoair.js top-level finished. Chunked builder (window.__oaBuild) now runs async in background.
+    const O=window.O;
+    OAProgress.setDeterminate();
+    if(O){
+      const stats=`${O.cls.length} cls · ${O.ind.length} indiv${O.satellites&&O.satellites.length?' · '+O.satellites.length+' sats':''}${O.geo&&O.geo.nodes&&O.geo.nodes.length?' · '+O.geo.nodes.length+' geo':''}`;
+      OAProgress.setMeta('parse',stats);
+    }
+    OAProgress.addSubStage('Script loaded','ontoair.js executed — deferred build started');
+
+    // Poll window.__oaBuild for chunked node/edge creation progress.
+    // build stage owns 85→97; layout stage owns 97→100.
+    let lastPhase='',pollMs=performance.now(),lastSig='',lastChange=performance.now();
+    while(true){
+      const b=window.__oaBuild;
+      if(!b){await new Promise(r=>setTimeout(r,30));if(performance.now()-pollMs>10000){OAProgress.error('build state was not created','build');return;}continue;}
+      if(b.phase==='error'||b.error){OAProgress.error('build failed: '+(b.error||'unknown error'),'build');return;}
+      const sig=`${b.phase}:${b.done}:${b.total}`;
+      if(sig!==lastSig){lastSig=sig;lastChange=performance.now();}
+      else if(!b.complete&&performance.now()-lastChange>45000){OAProgress.error(`build stalled at ${b.phase} ${b.done||0}/${b.total||0}`,'build');return;}
+      if(b.phase!==lastPhase){
+        if(lastPhase==='nodes')OAProgress.addSubStage('Nodes built',b.total.toLocaleString()+' meshes');
+        else if(lastPhase==='edges')OAProgress.addSubStage('Edges built',b.total.toLocaleString()+' edges');
+        lastPhase=b.phase;
+      }
+      const note=b.note?' · '+b.note:'';
+      if(b.phase==='nodes'){
+        const frac=b.total?b.done/b.total:0;
+        const pct=85+frac*6;  // 85→91
+        OAProgress.setStage('build',pct,`Building node meshes: ${b.done.toLocaleString()} / ${b.total.toLocaleString()}${note}`);
+      }else if(b.phase==='edges'){
+        const frac=b.total?b.done/b.total:0;
+        const pct=91+frac*6;  // 91→97
+        OAProgress.setStage('build',pct,`Building edges: ${b.done.toLocaleString()} / ${b.total.toLocaleString()}${note}`);
+      }else if(b.complete){
+        OAProgress.addSubStage('Edges built',b.total.toLocaleString()+' edges');
+        break;
+      }
+      await new Promise(r=>setTimeout(r,80));
+    }
+    if(window.populateEdgeFilter)window.populateEdgeFilter();
+    if(window.OA&&window.O){
+      const info=document.getElementById('info');
+      const edgeCount=typeof OA.logicalEdgeCount==='function'?OA.logicalEdgeCount():(OA.edgeObjs.length+OA.arrowObjs.length);
+      if(info)info.innerHTML=O.cls.length+' owl:Class<br>'+O.ind.length+' Individual<br>'+O.op.length+' ObjectProperty<br>'+O.dp.length+' DatatypeProperty<br>'+edgeCount+' edges';
+    }
+
+    // First paint check.
+    OAProgress.setStage('layout',97,'Awaiting first render frame…');
+    await new Promise(r=>requestAnimationFrame(()=>r()));
+    OAProgress.addSubStage('First frame painted','rAF fired');
+
+    // Stabilize render loop.
+    OAProgress.setStage('layout',98,'Stabilizing render loop…');
+    const logicalEdges=window.OA&&typeof window.OA.logicalEdgeCount==='function'?window.OA.logicalEdgeCount():((window.OA?.edgeObjs?.length||0)+(window.OA?.arrowObjs?.length||0));
+    const largeScene=!!(O&&((O.cls.length+O.ind.length)>5000||logicalEdges>20000));
+    const targetStable=largeScene?2:5,maxSamples=largeScene?8:40,frameBudget=largeScene?180:60;
+    let stableFrames=0,frameSamples=[];
+    while(stableFrames<targetStable){
+      const t0=performance.now();
+      await new Promise(r=>requestAnimationFrame(()=>r()));
+      const dt=performance.now()-t0;
+      frameSamples.push(dt);
+      if(dt<frameBudget)stableFrames++;else stableFrames=0;
+      if(frameSamples.length>maxSamples)break;
+    }
+    const avgMs=(frameSamples.reduce((a,b)=>a+b,0)/Math.max(1,frameSamples.length)).toFixed(1);
+    OAProgress.addSubStage(largeScene?'Render sampled':'Render stable',`${stableFrames}/${targetStable} frames < ${frameBudget}ms (avg ${avgMs}ms)`);
+
+    if(O&&(O.hasOrbit||O.hasGeo)){
+      OAProgress.setStage('layout',99,(O.hasOrbit?'Satellite propagator ready ('+O.satellites.length+' sats)':'Geo nodes ready ('+O.geo.nodes.length+')'));
+      OAProgress.addSubStage(O.hasOrbit?'SGP4 ready':'Geo ready',O.hasOrbit?O.satellites.length+' satellites':O.geo.nodes.length+' nodes');
+      await new Promise(r=>setTimeout(r,30));
+    }
+
+    const dt=((performance.now()-startScript)/1000).toFixed(2);
+    OAProgress.setStage('layout',100,`Fully loaded in ${dt}s · canvas ready for interaction`);
+    OAProgress.setMeta('layout',dt+'s');
+    OAProgress.addSubStage('Ready',dt+'s total · click GLOBE/MAP/H to view');
+    await new Promise(r=>setTimeout(r,500));
+    OAProgress.hide();
     const mp=document.createElement('script');mp.src='mediapipe/hands.js';mp.onload=()=>{
       const hc=document.createElement('script');hc.src='hand-control.js?'+Date.now();document.body.appendChild(hc);
     };document.body.appendChild(mp);
   };
   document.body.appendChild(s);
 }
-document.getElementById('sampleSel').addEventListener('change',e=>{if(e.target.value){location.hash=encodeURIComponent(e.target.value);location.reload();}});
+// File browser — VS Code-style recursive folder tree.
+// Two data sources:
+//   (a) HTTP directory listing (Python http.server) — used for default ../test/ on first run, file loaded via location.hash
+//   (b) FileSystemDirectoryHandle (showDirectoryPicker) — user-opened folder, files loaded via sessionStorage
+// Open buttons (top of sidebar): "Open Folder" (showDirectoryPicker), "Open File" (input[type=file] multi)
+// Opening a single file via "Open File" does NOT change the folder tree (it stays as-is).
+const ALLOWED_EXT=/\.(ttl|owl|rdf|trig|nt|nq|jsonld)$/i;
+const FMT_BADGE=p=>{const m=p.match(/\.(\w+)$/);return m?m[1].toUpperCase():'';};
+
+// (a) HTTP listing parser — Python http.server returns <li><a href="x">x</a></li>
+async function fetchHttpListing(url){
+  const u=url.endsWith('/')?url:url+'/';
+  const r=await fetch(u);
+  if(!r.ok)throw new Error('listing failed: '+r.status);
+  const html=await r.text();
+  if(!/Directory listing for|Index of/i.test(html))throw new Error('not a directory listing');
+  const matches=[...html.matchAll(/<a\s+href="([^"]+)">([^<]+)<\/a>/g)];
+  const folders=[],files=[];
+  for(const m of matches){
+    const href=m[1],name=decodeURIComponent(m[2]).replace(/\/$/,'');
+    if(href==='../'||href==='./'||name===''||name.startsWith('.'))continue;
+    const isDir=href.endsWith('/');
+    if(isDir)folders.push({name,kind:'dir',path:u+href});
+    else if(ALLOWED_EXT.test(name))files.push({name,kind:'file',path:u+href});
+  }
+  folders.sort((a,b)=>a.name.localeCompare(b.name));
+  files.sort((a,b)=>a.name.localeCompare(b.name));
+  return {folders,files};
+}
+
+// (b) FileSystemDirectoryHandle recursive scan (1 level — children loaded lazily on expand)
+async function scanDirHandle(handle){
+  const folders=[],files=[];
+  for await(const [name,h] of handle.entries()){
+    if(name.startsWith('.'))continue;
+    if(h.kind==='directory')folders.push({name,kind:'dir',handle:h});
+    else if(h.kind==='file'&&ALLOWED_EXT.test(name))files.push({name,kind:'file',handle:h});
+  }
+  folders.sort((a,b)=>a.name.localeCompare(b.name));
+  files.sort((a,b)=>a.name.localeCompare(b.name));
+  return {folders,files};
+}
+
+// In-memory state
+let FB_ROOT=null;  // {kind:'http', basePath:'../test/'} OR {kind:'handle', handle:FileSystemDirectoryHandle, name:'test'}
+let FB_OPEN=new Set();  // expanded folder paths (for persistence within session)
+
+(function buildFileBrowser(){
+  const aside=document.createElement('aside');aside.id='filebrowser';
+  aside.innerHTML=
+    "<h4><span><span class='fb-tag'>DEV</span> &nbsp;<span id='fb-root-name'>Explorer</span></span><span class='fb-count' id='fb-count'>—</span></h4>"+
+    "<div class='fb-section'>"+
+      "<div class='sub'>Open</div>"+
+      "<div style='display:flex;gap:6px;'>"+
+        "<button class='fb-openbtn' id='fb-open-folder' title='폴더 선택 (showDirectoryPicker)'><span>📁 Folder</span></button>"+
+        "<label class='fb-openbtn' for='fileSel' title='파일 1개 이상 선택 — 폴더 트리는 유지됨'><span>📄 File</span><input type='file' id='fileSel' accept='.owl,.rdf,.ttl,.trig,.nt,.nq,.jsonld' multiple></label>"+
+      "</div>"+
+      "<div class='fb-hint'>폴더: 트리 새로 표시 · 파일: 폴더 유지하며 즉시 로드</div>"+
+    "</div>"+
+    "<div class='fb-folders' id='fb-folders'></div>";
+  document.body.appendChild(aside);
+
+  const rsz=document.createElement('div');rsz.id='fb-resize';rsz.title='Resize browser';
+  document.body.appendChild(rsz);
+  const tog=document.createElement('button');tog.id='fb-toggle';tog.textContent='›';tog.title='Toggle file browser';
+  document.body.appendChild(tog);
+
+  function setCollapsed(v){document.body.classList.toggle('fb-collapsed',v);tog.textContent=v?'‹':'›';localStorage.setItem('fbCollapsed',v?'1':'0');}
+  tog.addEventListener('click',()=>setCollapsed(!document.body.classList.contains('fb-collapsed')));
+  setCollapsed(localStorage.getItem('fbCollapsed')==='1');
+
+  try{const saved=localStorage.getItem('ontoair.fbW');if(saved)document.documentElement.style.setProperty('--fb-w',saved);}catch(_){}
+  let active=false;
+  rsz.addEventListener('pointerdown',e=>{active=true;document.body.style.userSelect='none';rsz.setPointerCapture(e.pointerId);rsz.style.transition='none';e.preventDefault();});
+  window.addEventListener('pointermove',e=>{if(!active)return;const w=Math.max(220,Math.min(720,window.innerWidth-e.clientX));document.documentElement.style.setProperty('--fb-w',w+'px');});
+  window.addEventListener('pointerup',()=>{if(!active)return;active=false;document.body.style.userSelect='';rsz.style.transition='';
+    try{const w=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fb-w'));if(w)localStorage.setItem('ontoair.fbW',w+'px');}catch(_){}});
+
+  document.getElementById('fb-open-folder').addEventListener('click',openFolderPicker);
+})();
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+// Render a folder node (header + lazy children container). depth controls indent.
+function renderFolderNode(parentEl,entry,depth,loadChildrenFn,activeKey){
+  const fd=document.createElement('div');fd.className='fb-folder';
+  const key=entry.path||entry.name+'@'+depth;
+  fd.dataset.key=key;
+  if(FB_OPEN.has(key))fd.classList.add('open');
+  const head=document.createElement('div');head.className='fb-folder-head';
+  head.style.paddingLeft=(12+depth*14)+'px';
+  head.innerHTML="<span class='fb-fname'><span class='fb-chev'>▶</span>📁 "+escapeHtml(entry.name)+"</span>";
+  fd.appendChild(head);
+  const list=document.createElement('div');list.className='fb-folder-files';list.dataset.loaded='0';
+  fd.appendChild(list);
+  head.addEventListener('click',async()=>{
+    const willOpen=!fd.classList.contains('open');
+    fd.classList.toggle('open',willOpen);
+    if(willOpen)FB_OPEN.add(key);else FB_OPEN.delete(key);
+    if(willOpen&&list.dataset.loaded==='0'){
+      list.dataset.loaded='1';
+      list.innerHTML="<div class='fb-folder-desc'>loading…</div>";
+      try{
+        const children=await loadChildrenFn(entry);
+        list.innerHTML='';
+        children.folders.forEach(f=>renderFolderNode(list,f,depth+1,loadChildrenFn,activeKey));
+        children.files.forEach(f=>renderFileNode(list,f,depth+1,activeKey));
+        if(!children.folders.length&&!children.files.length){
+          list.innerHTML="<div class='fb-folder-desc' style='padding:8px 16px;color:#999'>비어 있음</div>";
+        }
+      }catch(err){
+        list.innerHTML="<div class='fb-folder-desc' style='padding:8px 16px;color:#c33'>로드 실패: "+escapeHtml(err.message)+"</div>";
+      }
+    }
+  });
+  parentEl.appendChild(fd);
+  // Auto-expand if marked open in FB_OPEN — trigger initial click to lazy-load
+  if(FB_OPEN.has(key)&&list.dataset.loaded==='0'){fd.classList.remove('open');head.click();}
+}
+
+function renderFileNode(parentEl,entry,depth,activeKey){
+  const fi=document.createElement('div');fi.className='fb-file';
+  fi.style.paddingLeft=(20+depth*14)+'px';
+  const key=entry.path||entry.name;
+  if(key===activeKey)fi.classList.add('active');
+  let html="<span>📄 "+escapeHtml(entry.name)+"</span>";
+  const badge=FMT_BADGE(entry.name);
+  if(badge)html+="<span class='fb-fbadge'>"+badge+"</span>";
+  fi.innerHTML=html;
+  fi.addEventListener('click',()=>loadFileEntry(entry));
+  parentEl.appendChild(fi);
+}
+
+async function loadFileEntry(entry){
+  if(entry.path){
+    // HTTP path — use existing hash-based loader (preserves history-friendly URL)
+    location.hash=encodeURIComponent(entry.path);location.reload();
+  }else if(entry.handle){
+    // FileSystemFileHandle — read and stash in sessionStorage
+    const f=await entry.handle.getFile();
+    const text=await f.text();
+    sessionStorage.setItem('devFile',JSON.stringify({text,fmt:fmtOf(f.name),name:f.name}));
+    location.hash='';location.reload();
+  }
+}
+
+async function renderTree(){
+  const folders=document.getElementById('fb-folders');
+  const rootName=document.getElementById('fb-root-name');
+  const countEl=document.getElementById('fb-count');
+  folders.innerHTML="<div class='fb-folder-desc' style='padding:8px 16px;color:#999'>loading…</div>";
+  if(!FB_ROOT){
+    folders.innerHTML="<div class='fb-folder-desc' style='padding:14px 16px;color:#999'>폴더가 지정되지 않음. 상단 '📁 Folder' 클릭.</div>";
+    rootName.textContent='Explorer';countEl.textContent='—';return;
+  }
+  const curHash=decodeURIComponent(location.hash.slice(1));
+  try{
+    let children;
+    if(FB_ROOT.kind==='http'){
+      rootName.textContent=FB_ROOT.basePath;
+      children=await fetchHttpListing(FB_ROOT.basePath);
+    }else{
+      rootName.textContent=FB_ROOT.handle.name+'/';
+      children=await scanDirHandle(FB_ROOT.handle);
+    }
+    countEl.textContent=children.folders.length+'D · '+children.files.length+'F';
+    folders.innerHTML='';
+    const loadChildren=async(entry)=>{
+      if(entry.path)return await fetchHttpListing(entry.path);
+      if(entry.handle)return await scanDirHandle(entry.handle);
+      return {folders:[],files:[]};
+    };
+    children.folders.forEach(f=>renderFolderNode(folders,f,0,loadChildren,curHash));
+    children.files.forEach(f=>renderFileNode(folders,f,0,curHash));
+  }catch(err){
+    folders.innerHTML="<div class='fb-folder-desc' style='padding:14px 16px;color:#c33'>폴더 로드 실패: "+escapeHtml(err.message)+"<br><br>'📁 Folder' 버튼으로 폴더를 직접 선택하세요.</div>";
+  }
+}
+
+async function openFolderPicker(){
+  if(!window.showDirectoryPicker){
+    alert('이 브라우저는 File System Access API를 지원하지 않습니다.\nSafari 16.4+ 또는 Chrome/Edge 최신 버전 필요.');
+    return;
+  }
+  try{
+    const handle=await window.showDirectoryPicker({mode:'read'});
+    FB_ROOT={kind:'handle',handle};
+    FB_OPEN=new Set();  // reset expanded state for new root
+    await renderTree();
+  }catch(err){
+    if(err.name!=='AbortError')alert('폴더 열기 실패: '+err.message);
+  }
+}
+
+// Initial root: try ../test/ via HTTP listing
+(async()=>{
+  FB_ROOT={kind:'http',basePath:'../test/'};
+  await renderTree();
+})();
+
 document.getElementById('reload-left').addEventListener('click',()=>location.reload());
 document.getElementById('reload-right').addEventListener('click',()=>location.reload());
 function readFiles(files){return Promise.all([...files].map(f=>new Promise(res=>{const r=new FileReader();r.onload=()=>res({text:r.result,name:f.name});r.readAsText(f);})));}
@@ -173,6 +670,7 @@ document.getElementById('fileSel').addEventListener('change',async e=>{const fs=
   const text=parts.map(p=>p.text).join('\n');
   const name=parts.map(p=>p.name).join(' + ');
   const fmt=fmtOf(parts[0].name);
+  // NOTE: 폴더 상태는 그대로 유지 — sessionStorage만 사용, FB_ROOT 변경 없음 (location.reload 후 init이 ../test/ 또는 마지막 선택을 다시 시도)
   sessionStorage.setItem('devFile',JSON.stringify({text,fmt,name}));location.hash='';location.reload();});
 document.getElementById('tboxSel').addEventListener('change',async e=>{const fs=e.target.files;if(!fs.length)return;
   const parts=await readFiles(fs);
@@ -182,20 +680,106 @@ document.getElementById('tboxSel').addEventListener('change',async e=>{const fs=
   const newName=parts.map(p=>p.name).join(' + ')+' + '+window.FNAME;
   sessionStorage.setItem('devFile',JSON.stringify({text:merged,fmt:window.FMT,name:newName}));location.hash='';location.reload();});
 document.getElementById('tboxClose').addEventListener('click',()=>{document.getElementById('tbox-banner').style.display='none';});
-function fetchAll(paths){return Promise.all(paths.map(p=>fetch(p+(p.includes('?')?'&':'?')+'_t='+Date.now(),{cache:'no-store'}).then(r=>r.ok?r.text():Promise.reject(p))));}
 (async()=>{
   const pending=sessionStorage.getItem('devFile');
-  if(pending){sessionStorage.removeItem('devFile');const d=JSON.parse(pending);window.RAW=d.text;window.FMT=d.fmt;window.FNAME=d.name;loadScript();maybeShowTBoxBanner();return;}
-  const h=decodeURIComponent(location.hash.slice(1));const path=h||'../test/sample.ttl';
-  // Multi-file via '|' separator
+  if(pending){
+    sessionStorage.removeItem('devFile');const d=JSON.parse(pending);
+    OAProgress.show(d.name+' (dropped file)');
+    OAProgress.bytes(d.text.length,d.text.length);OAProgress.finishFetch(d.text.length);
+    window.RAW=d.text;window.FMT=d.fmt;window.FNAME=d.name;
+    loadScript();maybeShowTBoxBanner();return;
+  }
+  const h=decodeURIComponent(location.hash.slice(1));const path=h||'../test/00-basics/sample.ttl';
   const paths=path.split('|');
-  try{const texts=await fetchAll(paths);
+  const displayName=paths.map(p=>p.split('/').pop()).join(' + ');
+  OAProgress.show(displayName);
+  async function tryFetch(pp,nm){
+    const{texts,totalBytes}=await fetchWithProgress(pp);
+    OAProgress.finishFetch(totalBytes);
     window.RAW=texts.join('\n');
-    window.FMT=fmtOf(paths[0]);
-    window.FNAME=paths.map(p=>p.split('/').pop()).join(' + ');
+    window.FMT=fmtOf(pp[0]);
+    window.FNAME=nm;
     loadScript();maybeShowTBoxBanner();
-  }catch(p){alert('fetch failed: '+p);}
+  }
+  try{await tryFetch(paths,displayName);}
+  catch(p){
+    // Graceful fallback: 1) clear stale hash, 2) retry with default sample.ttl, 3) if still fails → boot with empty RAW so sidebar tree is usable
+    console.warn('[OntoAir] initial fetch failed:',p,'→ fallback to ../test/00-basics/sample.ttl');
+    if(h){location.hash='';}  // clear stale hash (file may have been moved)
+    try{await tryFetch(['../test/00-basics/sample.ttl'],'sample.ttl (fallback)');}
+    catch(p2){
+      console.warn('[OntoAir] fallback also failed:',p2,'→ booting with empty ontology, use sidebar to open file/folder');
+      window.RAW='@prefix ex: <http://example.org/empty#> .\n';
+      window.FMT='ttl';
+      window.FNAME='(empty — use sidebar)';
+      OAProgress.finishFetch(window.RAW.length);
+      loadScript();maybeShowTBoxBanner();
+    }
+  }
 })();
+// === Scenes toggle (Observation 인디비주얼 visibility) ===
+// 위성이 촬영한 씬(Obs_*, rdf:type OpticalObservation)을 MAP/GLOBE/그래프에서 보이거나 숨김.
+// 토글 OFF 시: 해당 노드 mesh + 연결 엣지 + MAP pin + leader 모두 hide.
+window._scenesVisible=true;
+function _collectSceneIds(){
+  const ids=new Set();
+  if(window.O&&window.O.ind){
+    window.O.ind.forEach(i=>{
+      if(i.cls==='OpticalObservation'||/^Obs_/.test(i.id))ids.add(i.id);
+    });
+  }
+  // typ 배열에서도 OpticalObservation 타입 찾기 (다중 타입 안전)
+  if(window.O&&window.O.typ){
+    window.O.typ.forEach(([s,c])=>{if(c==='OpticalObservation')ids.add(s);});
+  }
+  return ids;
+}
+function toggleScenes(){
+  window._scenesVisible=!window._scenesVisible;
+  applyScenesVisibility();
+  const btn=document.getElementById('bscenes');
+  if(btn)btn.classList.toggle('active',window._scenesVisible);
+}
+function applyScenesVisibility(){
+  const v=window._scenesVisible;
+  const ids=_collectSceneIds();
+  if(!ids.size||!window.OA)return;
+  // 노드 mesh
+  if(window.OA.nodeMeshes){
+    window.OA.nodeMeshes.forEach(m=>{
+      if(m.userData&&ids.has(m.userData.id)){
+        m.visible=v;
+        // pin + leader (mapView 활성 시)
+        if(window.OA.mapView){
+          const p=window.OA.mapView.pins&&window.OA.mapView.pins[m.userData.id];
+          if(p&&p.mesh)p.mesh.visible=v;
+          const ld=window.OA.mapView.leaders&&window.OA.mapView.leaders[m.userData.id];
+          if(ld)ld.visible=v;
+        }
+      }
+    });
+  }
+  // 엣지 (씬과 연결된 producedBy/targetRegion 등)
+  if(window.OA.edgeObjs){
+    window.OA.edgeObjs.forEach(l=>{
+      if(l.userData&&(ids.has(l.userData.srcId)||ids.has(l.userData.tgtId))){
+        l.visible=v;
+        if(l.userData.labelSprite)l.userData.labelSprite.visible=v;
+      }
+    });
+  }
+  if(window.OA.arrowObjs){
+    window.OA.arrowObjs.forEach(a=>{
+      if(ids.has(a.srcId)||ids.has(a.tgtId)){
+        if(a.line)a.line.visible=v;
+        if(a.head)a.head.visible=v;
+        if(a.labelSprite)a.labelSprite.visible=v;
+      }
+    });
+  }
+}
+document.getElementById('bscenes').addEventListener('click',toggleScenes);
+
 function maybeShowTBoxBanner(){
   // Poll briefly until ontoair.js parses RAW into window.O. Also drives the GEO badge toggle.
   let tries=0;const t=setInterval(()=>{tries++;
@@ -203,6 +787,9 @@ function maybeShowTBoxBanner(){
       if(window.O.missingTBox){document.getElementById('tbox-banner').style.display='flex';}
       if(window.O.hasGeo||window.O.hasOrbit){const bm=document.getElementById('bgeomap');if(bm)bm.style.display='';const bg=document.getElementById('bgeoglobe');if(bg)bg.style.display='';}
       if(window.O.hasGrid){const bgr=document.getElementById('bgrid');if(bgr)bgr.style.display='';}
+      if(window.O.hasBody){const bb=document.getElementById('bbody');if(bb)bb.style.display='';}
+      // Scenes 버튼: OpticalObservation 또는 Obs_ prefix 인디비주얼이 있으면 표시
+      if(_collectSceneIds().size>0){const bs=document.getElementById('bscenes');if(bs)bs.style.display='';}
       clearInterval(t);
     }
     else if(tries>40)clearInterval(t);  // 4s timeout

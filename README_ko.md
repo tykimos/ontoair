@@ -110,4 +110,17 @@ Swift 코드는 `template.html` + `ontoair.js` + `three.min.js` + `OrbitControls
 
 ## 라이선스
 
-자신의 사용 정책을 추가하세요.
+**소스 공개형 — 개인 연구용 단독 사용에 한해 무료.** 오픈소스가 **아닙니다**.
+
+- ✅ **무료**: **개인 1인**이 **혼자** 자신의 개인 연구·학습·평가 목적으로 사용하는 경우.
+- 🤝 **사전 협의 필요**: **단체·조직·교육·상업** 목적의 모든 사용. 여기에는
+  **대학·연구실도 포함**됩니다(단체이므로 협의 대상). 학교, 기업, 비영리,
+  정부, 강의·교육·훈련, 서비스(SaaS) 제공 등 개인 단독 연구가 아닌 모든 사용.
+
+개인 단독 연구 외의 사용은 **tykim@aifactory.page** 로 문의하여 라이선스를 협의하세요.
+
+구속력 있는 조항은 [`LICENSE`](LICENSE), 번들된 구성요소(three.js, satellite.js,
+gif.js, MediaPipe 등 — 각자의 라이선스 유지)는 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)
+를 참고하세요.
+
+Copyright © 2026 tykimos.

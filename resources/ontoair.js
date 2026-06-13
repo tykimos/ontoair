@@ -77,6 +77,15 @@ function parseXML(xml){
       else if(pr==='gridy'||pr==='row')(_gxgAcc[subj]=_gxgAcc[subj]||{}).gy=num;}});
   const _gxgNodes=[];Object.entries(_gxgAcc).forEach(([id,v])=>{if(typeof v.gx==='number'&&typeof v.gy==='number')_gxgNodes.push({id,gx:v.gx,gy:v.gy});});
   R.grid={nodes:_gxgNodes,dimX:_gxgDimX,dimY:_gxgDimY};R.hasGrid=_gxgNodes.length>0;
+  // Body: scan bodyAnchor/bodyX/bodyY literal children. Mirrors parseTTL's R.body shape.
+  const _bxAcc={};
+  doc.querySelectorAll('*').forEach(el=>{const a=ga(el);if(!a)return;const subj=localName(a);
+    for(const c of el.children){const pr=(c.localName||'').toLowerCase();const txt=(c.textContent||'').trim();if(!txt)continue;
+      if(pr==='bodyanchor'||pr==='bodyregion'||pr==='anatomy'||pr==='organloc')(_bxAcc[subj]=_bxAcc[subj]||{}).key=txt.toLowerCase();
+      else if(pr==='bodyx'){const n=parseFloat(txt);if(!isNaN(n))(_bxAcc[subj]=_bxAcc[subj]||{}).bx=n;}
+      else if(pr==='bodyy'){const n=parseFloat(txt);if(!isNaN(n))(_bxAcc[subj]=_bxAcc[subj]||{}).by=n;}}});
+  const _bxNodes=[];Object.entries(_bxAcc).forEach(([id,v])=>{if(v.key||(typeof v.bx==='number'&&typeof v.by==='number'))_bxNodes.push({id,key:v.key||null,bx:(typeof v.bx==='number'?v.bx:null),by:(typeof v.by==='number'?v.by:null)});});
+  R.body={nodes:_bxNodes};R.hasBody=_bxNodes.length>0;
   return R;}
 
 function extractEquivAxioms(text,pfx){
@@ -118,6 +127,8 @@ function extractEquivAxioms(text,pfx){
 }
 
 function parseTTL(ttl){
+  const _ph=typeof window!=='undefined'&&typeof window.__oaPhase==='function'?window.__oaPhase:null;
+  _ph&&_ph('parseTTL start',(ttl.length/1048576).toFixed(2)+' MB');
   const R={cls:[],op:[],dp:[],ap:[],ind:[],sub:[],dom:[],rng:[],typ:[],rel:[],dpv:[],eqv:[],labels:{},comments:{}};
   const pfx={},S=new Set(),allAssert=[];
   const ls=ttl.split('\n').map(l=>{let o='',inURI=false;for(let i=0;i<l.length;i++){if(l[i]==='<')inURI=true;if(l[i]==='>')inURI=false;if(l[i]==='#'&&!inURI)return o.trim();o+=l[i];}return o.trim();}).filter(l=>l);
@@ -131,6 +142,7 @@ function parseTTL(ttl){
   const sts=[];let dp=0,qc=null,st='';
   for(let i=0;i<bd.length;i++){const c=bd[i];if(qc){st+=c;if(c===qc&&bd[i-1]!=='\\')qc=null;continue;}if(c==='"'||c==="'"){qc=c;st+=c;continue;}if(c==='['||c==='('){dp++;st+=c;continue;}if(c===']'||c===')'){dp--;st+=c;continue;}if(c==='.'&&dp===0){const pv=bd[i-1],nx=bd[i+1];if(pv&&nx&&/\d/.test(pv)&&/\d/.test(nx)){st+=c;continue;}if(st.trim())sts.push(st.trim());st='';continue;}st+=c;}
   if(st.trim())sts.push(st.trim());
+  _ph&&_ph('Statements tokenized',sts.length+' statements');
   // Quote-aware tokenizer: splits on whitespace but treats "..." / '...' as single tokens (preserves internal whitespace).
   // Critical for TLE strings where column alignment must survive parsing.
   function _tok(s){const out=[];let cur='',q=null;for(let i=0;i<s.length;i++){const c=s[i];if(q){cur+=c;if(c===q&&s[i-1]!=='\\')q=null;continue;}if(c==='"'||c==="'"){if(cur){out.push(cur);cur='';}cur=c;q=c;continue;}if(/\s/.test(c)){if(cur){out.push(cur);cur='';}continue;}cur+=c;}if(cur)out.push(cur);return out;}
@@ -155,6 +167,8 @@ function parseTTL(ttl){
         else if(pL==='comment'){const m=obj.match(/^"((?:[^"\\]|\\.)*)"/);if(m)R.comments[s2]=m[1];}
         else{allAssert.push([s2,pL,obj,o]);}});}
     proc(ft.slice(1));for(let i=1;i<pts.length;i++){const t=_tok(pts[i]);if(t)proc(t);}});
+  _ph&&_ph('TBox extracted',R.cls.length+' classes · '+R.op.length+' OP · '+R.dp.length+' DP');
+  _ph&&_ph('ABox extracted',R.ind.length+' individuals');
   const indIds=new Set(R.ind.map(i=>i.id)),opIds=new Set(R.op.map(o=>o.id)),dpIds=new Set(R.dp.map(d=>d.id));
   let implicitProps=0;
   allAssert.forEach(([s,p,objRaw,o])=>{
@@ -169,6 +183,7 @@ function parseTTL(ttl){
     }
   });
   R.missingTBox=implicitProps>3&&R.cls.length<2;
+  _ph&&_ph('Assertions linked',R.rel.length+' object · '+R.dpv.length+' datatype');
   // Geo: lat/long aggregation from R.dpv (literal datatype values). Pairs only.
   const _gtAcc={};
   R.dpv.forEach(({s,p,v})=>{const k=String(p).toLowerCase();const m=String(v).match(/^[+-]?\d+(?:\.\d+)?/);if(!m)return;const num=parseFloat(m[0]);if(isNaN(num))return;
@@ -176,6 +191,7 @@ function parseTTL(ttl){
     else if(k==='long'||k==='lng'||k==='longitude')(_gtAcc[s]=_gtAcc[s]||{}).lon=num;});
   const _gtNodes=[];Object.entries(_gtAcc).forEach(([id,v])=>{if(typeof v.lat==='number'&&typeof v.lon==='number'&&v.lat>=-90&&v.lat<=90&&v.lon>=-180&&v.lon<=180)_gtNodes.push({id,lat:v.lat,lon:v.lon});});
   R.geo={nodes:_gtNodes};R.hasGeo=_gtNodes.length>0;
+  _ph&&_ph('Geo aggregated',R.hasGeo?_gtNodes.length+' geo nodes':'none');
   // Orbit: aggregate TLE pairs from dpv. Satellites have tleLine1 + tleLine2 (each ~69 chars).
   const _otAcc={};
   R.dpv.forEach(({s,p,v})=>{const k=String(p).toLowerCase();
@@ -185,6 +201,7 @@ function parseTTL(ttl){
     else if(k==='noradid'||k==='norad')(_otAcc[s]=_otAcc[s]||{}).norad=String(v);});
   const _otSats=[];Object.entries(_otAcc).forEach(([id,v])=>{if(v.tle1&&v.tle2&&v.tle1.length>50&&v.tle2.length>50)_otSats.push({id,tle1:v.tle1,tle2:v.tle2,epoch:v.epoch||null,norad:v.norad||null});});
   R.satellites=_otSats;R.hasOrbit=_otSats.length>0;
+  _ph&&_ph('Orbit aggregated',R.hasOrbit?_otSats.length+' satellites with TLE':'none');
   // Grid: aggregate gridX/gridY (alias col/row, column/row) from dpv. Letters 'a'..'z' → 0..25 auto-convert.
   const _grAcc={};
   R.dpv.forEach(({s,p,v})=>{const k=String(p).toLowerCase();let num=parseFloat(String(v));if(isNaN(num)){const m=String(v).trim().match(/^[a-zA-Z]/);if(m)num=m[0].toLowerCase().charCodeAt(0)-97;}if(isNaN(num))return;
@@ -197,9 +214,19 @@ function parseTTL(ttl){
     else if(k==='griddimy'||k==='gridheight'||k==='gridrows')_grDimY=Math.max(_grDimY||0,num);});
   const _grNodes=[];Object.entries(_grAcc).forEach(([id,v])=>{if(typeof v.gx==='number'&&typeof v.gy==='number')_grNodes.push({id,gx:v.gx,gy:v.gy});});
   R.grid={nodes:_grNodes,dimX:_grDimX,dimY:_grDimY};R.hasGrid=_grNodes.length>0;
+  _ph&&_ph('Grid aggregated',R.hasGrid?_grNodes.length+' grid nodes':'none');
+  // Body: anatomical anchors. bodyAnchor "heart"/"심장" (looked up in BODY_ANCHORS at layout time) OR explicit bodyX/bodyY (normalized 0..1, top-left origin). Mirrors R.geo/R.grid shape.
+  const _bdAcc={};
+  R.dpv.forEach(({s,p,v})=>{let k=String(p).toLowerCase();const _ci=k.lastIndexOf(':');if(_ci>=0)k=k.slice(_ci+1);  // strip any prefix (handles non-ASCII prefixes like 인체:bodyAnchor)
+    if(k==='bodyanchor'||k==='bodyregion'||k==='anatomy'||k==='organloc')(_bdAcc[s]=_bdAcc[s]||{}).key=String(v).trim().toLowerCase();
+    else if(k==='bodyx'){const n=parseFloat(v);if(!isNaN(n))(_bdAcc[s]=_bdAcc[s]||{}).bx=n;}
+    else if(k==='bodyy'){const n=parseFloat(v);if(!isNaN(n))(_bdAcc[s]=_bdAcc[s]||{}).by=n;}});
+  const _bdNodes=[];Object.entries(_bdAcc).forEach(([id,v])=>{if(v.key||(typeof v.bx==='number'&&typeof v.by==='number'))_bdNodes.push({id,key:v.key||null,bx:(typeof v.bx==='number'?v.bx:null),by:(typeof v.by==='number'?v.by:null)});});
+  R.body={nodes:_bdNodes};R.hasBody=_bdNodes.length>0;
+  _ph&&_ph('Body aggregated',R.hasBody?_bdNodes.length+' anatomy-anchored nodes':'none');
   return R;}
 
-const O=FMT==='ttl'?parseTTL(RAW):parseXML(RAW);window.O=O;
+const O=(typeof window!=='undefined'&&window.__oaPrePO&&Array.isArray(window.__oaPrePO.cls))?window.__oaPrePO:(FMT==='ttl'?parseTTL(RAW):parseXML(RAW));window.O=O;
 
 const canvas=document.createElement('canvas');document.body.appendChild(canvas);
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});
@@ -222,17 +249,53 @@ function outlineLine(pts,dashed,color){const geo=new THREE.BufferGeometry().setF
 const CLS_R=1.6,IND_R=1.4;
 const GEO={Class:circGeo(CLS_R),Individual:circGeo(IND_R)};
 const nodeMap={},nodeMeshes=[],edgeObjs=[],arrowObjs=[],allLabels=[];
+const nodeMeshById=new Map();
+function getNodeMesh(id){return nodeMeshById.get(id)||null;}
+
+const NODE_LABEL_LIMIT=2500,IMPORTANT_NODE_LABEL_LIMIT=260,EDGE_LABEL_LIMIT=3000,EDGE_HEAD_LIMIT=12000,DENSE_EDGE_BATCH_LIMIT=12000,SOURCE_RENDER_LINE_LIMIT=5000;
+const graphNodeCount=O.cls.length+O.ind.length;
+const renderAllNodeLabels=graphNodeCount<=NODE_LABEL_LIMIT;
+const importantNodeLabels=new Set(O.cls.map(c=>c.id));
+const nodeDegree={};
+function bumpNodeDegree(id,n){if(!id)return;nodeDegree[id]=(nodeDegree[id]||0)+(n||1);}
+O.sub.forEach(([a,b])=>{bumpNodeDegree(a);bumpNodeDegree(b);});
+O.typ.forEach(([a,b])=>{bumpNodeDegree(a);bumpNodeDegree(b);});
+O.rel.forEach(r=>{bumpNodeDegree(r.s);bumpNodeDegree(r.o);});
+O.dom.forEach(d=>bumpNodeDegree(d.c));O.rng.forEach(r=>bumpNodeDegree(r.c));
+if(!renderAllNodeLabels){
+  Object.entries(nodeDegree).sort((a,b)=>b[1]-a[1]).slice(0,IMPORTANT_NODE_LABEL_LIMIT).forEach(([id])=>importantNodeLabels.add(id));
+}
+function shouldRenderNodeLabel(id,type){return renderAllNodeLabels||type==='Class'||importantNodeLabels.has(id);}
+let renderEdgeLabels=true;
+function shouldRenderEdgeLabel(){return renderEdgeLabels;}
+let renderArrowHeads=true;
+function shouldRenderArrowHead(){return renderArrowHeads;}
+let denseEdgeMode=false,denseEdgeItems=[],denseEdgeBatches=[];
+function logicalEdgeCount(){return denseEdgeMode?denseEdgeItems.length:(edgeObjs.length+arrowObjs.length);}
 let textScale=1.0;const REF_DIST=55;
 
+// Shared hierarchy depth: classes via subClassOf chain; individuals inherit their
+// deepest typed class's depth so MAP/GLOBE/HIER all tier them consistently.
+function _computeHierDepth(){
+  const cdepth={};
+  function getCD(id,visited){if(cdepth[id]!==undefined)return cdepth[id];if(visited.has(id))return 0;visited.add(id);
+    const parents=O.sub.filter(s=>s[0]===id).map(s=>s[1]);let d=0;parents.forEach(p=>{d=Math.max(d,getCD(p,new Set(visited))+1);});cdepth[id]=d;return d;}
+  O.cls.forEach(c=>getCD(c.id,new Set()));
+  let maxCD=0;Object.values(cdepth).forEach(d=>{if(d>maxCD)maxCD=d;});
+  const idepth={};
+  O.ind.forEach(i=>{const types=O.typ.filter(t=>t[0]===i.id).map(t=>t[1]);
+    let best=-1;types.forEach(t=>{if(cdepth[t]!==undefined&&cdepth[t]>best)best=cdepth[t];});
+    idepth[i.id]=best>=0?best:maxCD;});
+  return {cdepth,idepth,maxCD};
+}
 function hierLayout(){
-  const depth={};
-  function getDepth(id,visited){if(depth[id]!==undefined)return depth[id];if(visited.has(id))return 0;visited.add(id);
-    const parents=O.sub.filter(s=>s[0]===id).map(s=>s[1]);let d=0;parents.forEach(p=>{d=Math.max(d,getDepth(p,new Set(visited))+1);});depth[id]=d;return d;}
-  O.cls.forEach(c=>getDepth(c.id,new Set()));
-  const maxD=Math.max(0,...Object.values(depth));
+  const {cdepth,idepth,maxCD}=_computeHierDepth();
+  const depth=Object.assign({},cdepth);O.ind.forEach(i=>{depth[i.id]=idepth[i.id];});
+  const maxD=maxCD;
   const layers={};
   O.cls.forEach(c=>{const d=depth[c.id]||0;(layers[d]=layers[d]||[]).push(c.id);});
-  const indL=maxD+1;O.ind.forEach(i=>{(layers[indL]=layers[indL]||[]).push(i.id);});
+  // Individuals tier by their primary typed class's depth (not a single bottom layer).
+  O.ind.forEach(i=>{const d=idepth[i.id];(layers[d]=layers[d]||[]).push(i.id);});
   const nodeLayer={};Object.keys(layers).forEach(l=>layers[l].forEach(id=>nodeLayer[id]=+l));
   const adj={};function addAdj(a,b){if(!a||!b||a===b)return;(adj[a]=adj[a]||new Set()).add(b);(adj[b]=adj[b]||new Set()).add(a);}
   O.sub.forEach(([c,p])=>addAdj(c,p));
@@ -288,79 +351,164 @@ function hierLayout(){
       const rad=baseR*(1-hubFrac*0.55);
       const y=baseY+hubFrac*yStep*0.7;
       nodeMap[id]={x:Math.cos(a)*rad,y,z:Math.sin(a)*rad};});}
-  const arrInd=layers[indL]||[];const indY=Math.min(-6,yTop-(maxD+1)*yStep-3);const indR=R*0.85;
-  // Hub-ness: individuals with many same-layer connections sit closer to the center,
-  // so chord lengths to their scattered peers stay roughly equal.
-  const indHub={};let maxIndHub=0;
-  arrInd.forEach(id=>{const c=[...(adj[id]||[])].filter(n=>nodeLayer[n]===indL).length;indHub[id]=c;if(c>maxIndHub)maxIndHub=c;});
-  arrInd.forEach(id=>{const a=angPos[id];
-    const hubFrac=maxIndHub>0?indHub[id]/maxIndHub:0;
-    const rad=indR*(1-hubFrac*0.5);
-    nodeMap[id]={x:Math.cos(a)*rad,y:indY,z:Math.sin(a)*rad};});
-  // Singleton rule: if a class has exactly one directly-typed individual and that individual
-  // isn't a hub, drop the individual straight below the class (same x, z).
-  const indByClass={};O.typ.forEach(([i,c])=>{(indByClass[c]=indByClass[c]||[]).push(i);});
-  arrInd.forEach(id=>{
-    if(indHub[id]>1)return;
-    const ts=O.typ.filter(t=>t[0]===id).map(t=>t[1]);
-    let primary=null,maxDp=-1;
-    ts.forEach(t=>{const d=depth[t];if(d!==undefined&&d>=maxDp){maxDp=d;primary=t;}});
-    if(primary&&indByClass[primary]&&indByClass[primary].length===1){
-      const cp=nodeMap[primary];if(cp){nodeMap[id].x=cp.x;nodeMap[id].z=cp.z;}
-    }
-  });}
+  // Individuals already placed by the per-depth loop above (sharing the tier of their primary typed class).
+  // Push them to the outer ring of their tier so classes (hub-biased) sit closer to center.
+  O.ind.forEach(i=>{const id=i.id;const d=idepth[id];const np=nodeMap[id];if(!np)return;
+    const a=angPos[id];const baseR=R*(1-d*0.1);const outR=baseR*1.05;
+    np.x=Math.cos(a)*outR;np.z=Math.sin(a)*outR;np.y=yTop-d*yStep-yStep*0.18;});}
 hierLayout();updateFloor();
 
+const labelTextureCache=new Map();
 function makeLabel(text,size,subtitle){size=size||1.6;
   // Canvas height grows with line count so each line keeps the same px-per-world ratio as a single-line label.
   const lines=subtitle?2:1;
-  const W=1280,H=160*lines;
-  const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
-  x.textAlign='center';x.textBaseline='middle';
   let l=text;if(l.length>24)l=l.substring(0,22)+'...';
   let sub='';if(subtitle){sub=subtitle;if(sub.length>28)sub=sub.substring(0,26)+'...';}
-  x.font='72px system-ui,-apple-system,sans-serif';
-  const tw=x.measureText(l).width;
-  const stw=sub?x.measureText(sub).width:0;
-  const maxTw=Math.max(tw,stw);
-  const pX=28,pY=18,bw=Math.min(maxTw+pX*2,W-20),bh=(subtitle?72*2+16:72)+pY*2,bx=(W-bw)/2,by=(H-bh)/2;
-  x.fillStyle='rgba(255,255,255,0.97)';x.beginPath();x.roundRect(bx,by,bw,bh,18);x.fill();
-  x.fillStyle='#222';
-  if(subtitle){
-    x.fillText(l,W/2,H/2-44);
-    x.fillStyle='#666';x.fillText(sub,W/2,H/2+44);
-  }else{
-    x.fillText(l,W/2,H/2);
+  const key=size+'|'+l+'|'+sub;
+  let cached=labelTextureCache.get(key);
+  if(!cached){
+    const W=1280,H=160*lines;
+    const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+    x.textAlign='center';x.textBaseline='middle';
+    x.font='72px system-ui,-apple-system,sans-serif';
+    const tw=x.measureText(l).width;
+    const stw=sub?x.measureText(sub).width:0;
+    const maxTw=Math.max(tw,stw);
+    const pX=28,pY=18,bw=Math.min(maxTw+pX*2,W-20),bh=(subtitle?72*2+16:72)+pY*2,bx=(W-bw)/2,by=(H-bh)/2;
+    x.fillStyle='rgba(255,255,255,0.97)';x.beginPath();x.roundRect(bx,by,bw,bh,18);x.fill();
+    x.fillStyle='#222';
+    if(subtitle){
+      x.fillText(l,W/2,H/2-44);
+      x.fillStyle='#666';x.fillText(sub,W/2,H/2+44);
+    }else{
+      x.fillText(l,W/2,H/2);
+    }
+    cached={texture:new THREE.CanvasTexture(c),baseScale:size*lines,aspect:W/H};
+    labelTextureCache.set(key,cached);
   }
-  const t=new THREE.CanvasTexture(c);const m=new THREE.SpriteMaterial({map:t,transparent:true,depthWrite:false});
-  const baseScale=size*lines,aspect=W/H;
-  const s=new THREE.Sprite(m);s.userData.baseScale=baseScale;s.userData.aspect=aspect;s.scale.set(baseScale*aspect,baseScale,1);allLabels.push(s);return s;}
+  const m=new THREE.SpriteMaterial({map:cached.texture,transparent:true,depthWrite:false});
+  const s=new THREE.Sprite(m);s.userData.baseScale=cached.baseScale;s.userData.aspect=cached.aspect;s.scale.set(cached.baseScale*cached.aspect,cached.baseScale,1);allLabels.push(s);return s;}
 
 function makeNode(id,type,x,y,z,label,uri){const geo=type==='Class'?GEO.Class:GEO.Individual;
   const mesh=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:0xffffff,side:THREE.DoubleSide}));
   mesh.position.set(x,y,z);mesh.userData={id,type,label:label||id,uri:uri||'',radius:type==='Class'?CLS_R:IND_R};
   const outPts=circleOutlinePts(type==='Class'?CLS_R:IND_R);
   mesh.add(outlineLine(outPts,type==='Class',0x333333));
-  const baseId=label||id;
-  const rdfsLabel=O.labels&&O.labels[id];
-  const _norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
-  const sameAfterStrip=rdfsLabel&&_norm(rdfsLabel)===_norm(baseId);
-  const lbl=(rdfsLabel&&!sameAfterStrip)?makeLabel(rdfsLabel,1.4,baseId):makeLabel(rdfsLabel||baseId,1.4);
-  lbl.position.set(0,0,0.1);mesh.add(lbl);
-  scene.add(mesh);nodeMeshes.push(mesh);return mesh;}
+  if(shouldRenderNodeLabel(id,type)){
+    const baseId=label||id;
+    const rdfsLabel=O.labels&&O.labels[id];
+    const _norm=s=>String(s||'').replace(/\s+/g,'').toLowerCase();
+    const sameAfterStrip=rdfsLabel&&_norm(rdfsLabel)===_norm(baseId);
+    const lbl=(rdfsLabel&&!sameAfterStrip)?makeLabel(rdfsLabel,1.4,baseId):makeLabel(rdfsLabel||baseId,1.4);
+    lbl.position.set(0,0,0.1);mesh.add(lbl);
+  }
+  scene.add(mesh);nodeMeshes.push(mesh);nodeMeshById.set(id,mesh);return mesh;}
 
-O.cls.forEach(c=>{const p=nodeMap[c.id];if(p)makeNode(c.id,'Class',p.x,p.y,p.z,c.id,c.uri);});
-O.ind.forEach(c=>{const p=nodeMap[c.id];if(p)makeNode(c.id,'Individual',p.x,p.y,p.z,c.id,c.uri);});
+// Chunked async builder — defers heavy mesh + edge creation so the loading modal can update.
+// State exposed via window.__oaBuild = {phase, done, total, complete}; polled by dev.html.
+window.__oaBuild={phase:'pending',done:0,total:0,complete:false};
+async function _oaChunkedBuild(){
+  const nodeItems=[];
+  O.cls.forEach(c=>{const p=nodeMap[c.id];if(p)nodeItems.push(['Class',c,p]);});
+  O.ind.forEach(c=>{const p=nodeMap[c.id];if(p)nodeItems.push(['Individual',c,p]);});
+  window.__oaBuild={phase:'nodes',done:0,total:nodeItems.length,complete:false};
+  const CHUNK=400;
+  for(let i=0;i<nodeItems.length;){
+    const end=Math.min(i+CHUNK,nodeItems.length);
+    for(let j=i;j<end;j++){const it=nodeItems[j];makeNode(it[1].id,it[0],it[2].x,it[2].y,it[2].z,it[1].id,it[1].uri);}
+    i=end;window.__oaBuild.done=end;
+    if(i<nodeItems.length)await new Promise(r=>setTimeout(r,0));
+  }
+  // Edges next — _pairCount has been populated synchronously by code below.
+  const eItems=[];
+  O.sub.forEach(([c,p])=>eItems.push(['sub',c,p]));
+  O.typ.forEach(([id,c])=>eItems.push(['typ',id,c]));
+  O.op.forEach(op=>{const doms=O.dom.filter(d=>d.p===op.id).map(d=>d.c),rngs=O.rng.filter(r=>r.p===op.id).map(r=>r.c);
+    doms.forEach(d=>rngs.forEach(r=>eItems.push(['op',d,r,op.id])));});
+  O.rel.forEach(rel=>eItems.push(['rel',rel.s,rel.o,rel.p]));
+  renderEdgeLabels=eItems.length<=EDGE_LABEL_LIMIT;
+  renderArrowHeads=eItems.length<=EDGE_HEAD_LIMIT;
+  denseEdgeMode=eItems.length>DENSE_EDGE_BATCH_LIMIT;
+  denseEdgeItems=denseEdgeMode?eItems.slice():[];
+  const edgeNotes=[];if(denseEdgeMode)edgeNotes.push('edges batched');if(!renderEdgeLabels)edgeNotes.push('edge labels deferred');if(!renderArrowHeads)edgeNotes.push('arrowheads deferred');
+  window.__oaBuild={phase:'edges',done:0,total:eItems.length,complete:false,note:edgeNotes.join(' · ')};
+  if(denseEdgeMode){
+    await buildDenseEdgeBatches(eItems,1200);
+    window.__oaBuild={phase:'done',done:eItems.length,total:eItems.length,complete:true,note:edgeNotes.join(' · ')};
+    return;
+  }
+  const EDGE_CHUNK=renderArrowHeads?CHUNK:1200;
+  for(let i=0;i<eItems.length;){
+    const end=Math.min(i+EDGE_CHUNK,eItems.length);
+    for(let j=i;j<end;j++){const e=eItems[j];
+      if(e[0]==='sub')makeArrow(e[1],e[2],'subClassOf',0x333333,true,true);
+      else if(e[0]==='typ')addLine(e[1],e[2],'a',0xaaaaaa,true);
+      else if(e[0]==='op')makeArrow(e[1],e[2],e[3],0x555555,false,true);
+      else if(e[0]==='rel')makeArrow(e[1],e[2],e[3],0x222222,false,false);
+    }
+    i=end;window.__oaBuild.done=end;
+    if(i<eItems.length)await new Promise(r=>setTimeout(r,0));
+  }
+  window.__oaBuild={phase:'done',done:eItems.length,total:eItems.length,complete:true,note:edgeNotes.join(' · ')};
+}
+// _oaChunkedBuild() is invoked AFTER _pairCount/_pairAssign are populated below,
+// otherwise the edge phase hits a TDZ ReferenceError on _pairCount inside makeArrow.
 
 function addLine(srcId,tgtId,label,color,dashed){
-  const sm=nodeMeshes.find(m=>m.userData.id===srcId),tm=nodeMeshes.find(m=>m.userData.id===tgtId);if(!sm||!tm)return;
+  const sm=getNodeMesh(srcId),tm=getNodeMesh(tgtId);if(!sm||!tm)return;
   const geo=new THREE.BufferGeometry().setFromPoints([sm.position.clone(),tm.position.clone()]);
   const mat=dashed?new THREE.LineDashedMaterial({color:color||0xbbbbbb,dashSize:0.4,gapSize:0.3}):new THREE.LineBasicMaterial({color:color||0xbbbbbb});
   const line=new THREE.Line(geo,mat);line.userData={srcId,tgtId,label,dashed:!!dashed,origColor:color||0xbbbbbb};
   if(dashed)line.computeLineDistances();
   scene.add(line);edgeObjs.push(line);
-  if(label){const mid=sm.position.clone().add(tm.position).multiplyScalar(.5);const lbl=makeLabel(label,1.4);lbl.position.copy(mid);scene.add(lbl);line.userData.labelSprite=lbl;}
+  if(label&&shouldRenderEdgeLabel()){const mid=sm.position.clone().add(tm.position).multiplyScalar(.5);const lbl=makeLabel(label,1.4);lbl.position.copy(mid);scene.add(lbl);line.userData.labelSprite=lbl;}
   return line;}
+
+function denseEdgeLabel(e){return e[0]==='sub'?'subClassOf':e[0]==='typ'?'a':e[3];}
+function denseEdgeColor(e){return e[0]==='sub'?0x333333:e[0]==='typ'?0xaaaaaa:e[0]==='op'?0x555555:0x222222;}
+function denseEdgeEndpoints(e){return[e[1],e[2]];}
+function denseSegment(srcId,tgtId){
+  const sm=getNodeMesh(srcId),tm=getNodeMesh(tgtId);if(!sm||!tm)return null;
+  const edge=new THREE.Vector3().subVectors(tm.position,sm.position);const len=edge.length();if(len<0.01)return null;
+  edge.normalize();
+  const sR=sm.userData.radius||1.4,tR=tm.userData.radius||1.4;
+  const src=sm.position.clone().addScaledVector(edge,sR);
+  const tgt=tm.position.clone().addScaledVector(edge,-tR);
+  return[src,tgt];
+}
+function fillDenseBatch(batch){
+  const pos=batch.positions;let off=0;
+  batch.items.forEach(e=>{
+    const [srcId,tgtId]=denseEdgeEndpoints(e),seg=denseSegment(srcId,tgtId);
+    if(seg){const[s,t]=seg;pos[off++]=s.x;pos[off++]=s.y;pos[off++]=s.z;pos[off++]=t.x;pos[off++]=t.y;pos[off++]=t.z;}
+    else{for(let k=0;k<6;k++)pos[off++]=0;}
+  });
+  if(batch.geometry&&batch.geometry.attributes.position)batch.geometry.attributes.position.needsUpdate=true;
+}
+async function buildDenseEdgeBatches(eItems,chunk){
+  denseEdgeBatches.forEach(b=>{scene.remove(b.line);b.geometry.dispose();b.material.dispose();});
+  denseEdgeBatches.length=0;
+  const groups=new Map();
+  for(let i=0;i<eItems.length;){
+    const end=Math.min(i+chunk,eItems.length);
+    for(let j=i;j<end;j++){
+      const e=eItems[j],label=denseEdgeLabel(e),color=denseEdgeColor(e),key=label+'|'+color;
+      let g=groups.get(key);if(!g){g={label,color,items:[]};groups.set(key,g);}
+      g.items.push(e);
+    }
+    i=end;window.__oaBuild.done=end;
+    if(i<eItems.length)await new Promise(r=>setTimeout(r,0));
+  }
+  groups.forEach(g=>{
+    const positions=new Float32Array(g.items.length*6);
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+    const material=new THREE.LineBasicMaterial({color:g.color,transparent:true,opacity:0.58});
+    const line=new THREE.LineSegments(geometry,material);line.userData={label:g.label,dense:true,origColor:g.color};
+    const batch={label:g.label,color:g.color,items:g.items,positions,geometry,material,line};
+    fillDenseBatch(batch);scene.add(line);denseEdgeBatches.push(batch);
+  });
+}
+function refreshDenseEdgeBatches(){denseEdgeBatches.forEach(fillDenseBatch);}
 
 const HEAD_SIZE=1.1;
 function paintArrowHead(ctx,color,hollow,N){
@@ -371,46 +519,52 @@ function paintArrowHead(ctx,color,hollow,N){
   ctx.beginPath();ctx.moveTo(tipX,cy);ctx.lineTo(baseX,upY);ctx.lineTo(baseX,dnY);ctx.closePath();
   if(hollow){ctx.fillStyle='#ffffff';ctx.fill();ctx.strokeStyle=hex;ctx.lineWidth=N*0.08;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();}
   else{ctx.fillStyle=hex;ctx.fill();}}
-function arrowHeadSprite(color,hollow){
-  const N=128;const c=document.createElement('canvas');c.width=N;c.height=N;
+const arrowHeadTextureCache=new Map();
+function arrowHeadTexture(color,hollow){
+  const N=128,key=(color||0x555555)+'|'+(hollow?1:0);
+  let tex=arrowHeadTextureCache.get(key);if(tex)return tex;
+  const c=document.createElement('canvas');c.width=N;c.height=N;
   paintArrowHead(c.getContext('2d'),color,hollow,N);
-  const tex=new THREE.CanvasTexture(c);
+  tex=new THREE.CanvasTexture(c);arrowHeadTextureCache.set(key,tex);return tex;
+}
+function arrowHeadSprite(color,hollow){
+  const N=128,tex=arrowHeadTexture(color,hollow);
   const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false});
   const s=new THREE.Sprite(mat);s.scale.set(HEAD_SIZE,HEAD_SIZE,1);
   s.userData.headSize=HEAD_SIZE;s.userData.tipFrac=(N*0.72*2/3)/N;
-  s.userData.hollow=!!hollow;s.userData.canvas=c;return s;}
-function repaintHead(sprite,color){const c=sprite.userData.canvas;paintArrowHead(c.getContext('2d'),color,sprite.userData.hollow,c.width);sprite.material.map.needsUpdate=true;}
+  s.userData.hollow=!!hollow;s.userData.color=color;return s;}
+function repaintHead(sprite,color){if(!sprite)return;const tex=arrowHeadTexture(color,sprite.userData.hollow);if(sprite.material.map!==tex){sprite.material.map=tex;sprite.material.needsUpdate=true;}sprite.userData.color=color;}
 
 function makeArrow(srcId,tgtId,label,color,hollow,dashed){
   if(srcId===tgtId)return makeLoop(srcId,label,color,hollow,dashed);
-  const sm=nodeMeshes.find(m=>m.userData.id===srcId),tm=nodeMeshes.find(m=>m.userData.id===tgtId);if(!sm||!tm)return;
+  const sm=getNodeMesh(srcId),tm=getNodeMesh(tgtId);if(!sm||!tm)return;
   const col=color||0x555555;
   const offset=_pairOffset(srcId,tgtId);
   const geo=new THREE.BufferGeometry().setFromPoints([sm.position.clone(),tm.position.clone()]);
   const mat=dashed?new THREE.LineDashedMaterial({color:col,dashSize:0.4,gapSize:0.28}):new THREE.LineBasicMaterial({color:col});
   const line=new THREE.Line(geo,mat);if(dashed)line.computeLineDistances();
   scene.add(line);
-  const head=arrowHeadSprite(col,hollow);scene.add(head);
-  const obj={line,head,srcId,tgtId,label,type:'arrow2d',visible:true,headSize:head.userData.headSize,dashed:!!dashed,origColor:col,offset,origOffset:offset};
+  const head=shouldRenderArrowHead()?arrowHeadSprite(col,hollow):null;if(head)scene.add(head);
+  const obj={line,head,srcId,tgtId,label,type:'arrow2d',visible:true,headSize:head?head.userData.headSize:0,dashed:!!dashed,origColor:col,offset,origOffset:offset};
   arrowObjs.push(obj);
-  if(label){const mid=sm.position.clone().add(tm.position).multiplyScalar(.5);const lbl=makeLabel(label,1.4);lbl.position.copy(mid);scene.add(lbl);obj.labelSprite=lbl;}
+  if(label&&shouldRenderEdgeLabel()){const mid=sm.position.clone().add(tm.position).multiplyScalar(.5);const lbl=makeLabel(label,1.4);lbl.position.copy(mid);scene.add(lbl);obj.labelSprite=lbl;}
   updateArrow(obj);return obj;}
 
 function updateArrow(a){
   if(a.isLoop)return;
-  const sm=nodeMeshes.find(m=>m.userData.id===a.srcId),tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);if(!sm||!tm)return;
+  const sm=getNodeMesh(a.srcId),tm=getNodeMesh(a.tgtId);if(!sm||!tm)return;
   const edge=new THREE.Vector3().subVectors(tm.position,sm.position);const len=edge.length();if(len<0.01)return;
   edge.normalize();
   const sR=sm.userData.radius||1.4,tR=tm.userData.radius||1.4;
   const srcPt=sm.position.clone().addScaledVector(edge,sR);
-  const hs=a.headSize||HEAD_SIZE;const tipOff=a.head.userData.tipFrac||0.48;
+  const hs=a.headSize||0;const tipOff=a.head?(a.head.userData.tipFrac||0.48):0;
   const headCenter=tm.position.clone().addScaledVector(edge,-(tR+hs*tipOff));
   if(!a.offset){
     const pos=a.line.geometry.attributes.position;
     if(pos.count===2){pos.setXYZ(0,srcPt.x,srcPt.y,srcPt.z);pos.setXYZ(1,headCenter.x,headCenter.y,headCenter.z);pos.needsUpdate=true;}
     else{a.line.geometry.dispose();a.line.geometry=new THREE.BufferGeometry().setFromPoints([srcPt,headCenter]);}
     if(a.dashed)a.line.computeLineDistances();
-    a.head.position.copy(headCenter);
+    if(a.head)a.head.position.copy(headCenter);
     if(a.labelSprite)a.labelSprite.position.copy(sm.position.clone().add(tm.position).multiplyScalar(.5));
     a._tangent=null;
   }else{
@@ -435,7 +589,7 @@ function updateArrow(a){
     a.line.geometry.dispose();
     a.line.geometry=new THREE.BufferGeometry().setFromPoints(pts);
     if(a.dashed)a.line.computeLineDistances();
-    a.head.position.copy(headCenter);
+    if(a.head)a.head.position.copy(headCenter);
     if(a.labelSprite)a.labelSprite.position.copy(curve.getPoint(0.5));
     a._tangent=curve.getTangentAt(1).normalize();
     a._cpWorld=cp;
@@ -445,18 +599,19 @@ function updateArrow(a){
 
 function updateArrowRot(a){
   if(a.isLoop)return;
+  if(!a.head)return;
   if(a.offset&&a._cpWorld){
-    const endWorld=a._endPt||(()=>{const tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);return tm?tm.position:null;})();
+    const endWorld=a._endPt||(()=>{const tm=getNodeMesh(a.tgtId);return tm?tm.position:null;})();
     if(!endWorld)return;
     const t=endWorld.clone().project(camera);const c=a._cpWorld.clone().project(camera);
     a.head.material.rotation=Math.atan2(t.y-c.y,t.x-c.x);return;
   }
-  const sm=nodeMeshes.find(m=>m.userData.id===a.srcId),tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);if(!sm||!tm)return;
+  const sm=getNodeMesh(a.srcId),tm=getNodeMesh(a.tgtId);if(!sm||!tm)return;
   const s=sm.position.clone().project(camera),t=tm.position.clone().project(camera);
   a.head.material.rotation=Math.atan2(t.y-s.y,t.x-s.x);}
 
 function makeLoop(nodeId,label,color,hollow,dashed){
-  const m=nodeMeshes.find(n=>n.userData.id===nodeId);if(!m)return;
+  const m=getNodeMesh(nodeId);if(!m)return;
   const R=m.userData.radius||1.4;const col=color||0x555555;
   const sx=R*Math.cos(Math.PI/4),sy=R*Math.sin(Math.PI/4);
   const ex=R*Math.cos(-Math.PI/4),ey=R*Math.sin(-Math.PI/4);
@@ -470,14 +625,14 @@ function makeLoop(nodeId,label,color,hollow,dashed){
   const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat);
   if(dashed)line.computeLineDistances();
   m.add(line);
-  const head=arrowHeadSprite(col,hollow);
-  const hs=head.userData.headSize,tipFrac=head.userData.tipFrac||0.48;
+  const head=shouldRenderArrowHead()?arrowHeadSprite(col,hollow):null;
+  const hs=head?head.userData.headSize:0,tipFrac=head?(head.userData.tipFrac||0.48):0;
   const endPt=pts[pts.length-1];const tangent=curve.getTangent(1.0).normalize();
-  head.position.set(endPt.x-tangent.x*hs*tipFrac,endPt.y-tangent.y*hs*tipFrac,endPt.z);
+  if(head){head.position.set(endPt.x-tangent.x*hs*tipFrac,endPt.y-tangent.y*hs*tipFrac,endPt.z);
   head.material.rotation=Math.atan2(tangent.y,tangent.x);
-  m.add(head);
+  m.add(head);}
   const obj={line,head,srcId:nodeId,tgtId:nodeId,label,type:'loop',isLoop:true,visible:true,headSize:hs,origColor:col,dashed:!!dashed};
-  if(label){const mid=curve.getPoint(0.5);const lbl=makeLabel(label,1.4);lbl.position.set(mid.x+0.2,mid.y,0.01);m.add(lbl);obj.labelSprite=lbl;}
+  if(label&&shouldRenderEdgeLabel()){const mid=curve.getPoint(0.5);const lbl=makeLabel(label,1.4);lbl.position.set(mid.x+0.2,mid.y,0.01);m.add(lbl);obj.labelSprite=lbl;}
   arrowObjs.push(obj);return obj;}
 
 const _pairCount={},_pairAssign={};
@@ -486,15 +641,17 @@ function _countPair(a,b){const k=_pkey(a,b);_pairCount[k]=(_pairCount[k]||0)+1;}
 O.sub.forEach(([c,p])=>_countPair(c,p));
 O.op.forEach(op=>{const doms=O.dom.filter(d=>d.p===op.id).map(d=>d.c),rngs=O.rng.filter(r=>r.p===op.id).map(r=>r.c);doms.forEach(d=>rngs.forEach(r=>_countPair(d,r)));});
 O.rel.forEach(rel=>_countPair(rel.s,rel.o));
+// _pairCount is now fully populated; safe to start the chunked builder.
+_oaChunkedBuild().catch(err=>{
+  const prev=window.__oaBuild||{};
+  window.__oaBuild={phase:'error',done:prev.done||0,total:prev.total||0,complete:false,error:(err&&err.message)||String(err)};
+  console.error(err);
+});
 function _pairOffset(a,b){const k=_pkey(a,b);const n=_pairCount[k]||1;if(n<=1)return 0;
   const i=(_pairAssign[k]=(_pairAssign[k]||0)+1)-1;
   return (i-(n-1)/2)*0.7;}
 
-O.sub.forEach(([c,p])=>makeArrow(c,p,'subClassOf',0x333333,true,true));
-O.typ.forEach(([i,c])=>addLine(i,c,'a',0xaaaaaa,true));
-O.op.forEach(op=>{const doms=O.dom.filter(d=>d.p===op.id).map(d=>d.c),rngs=O.rng.filter(r=>r.p===op.id).map(r=>r.c);
-  doms.forEach(d=>rngs.forEach(r=>makeArrow(d,r,op.id,0x555555,false,true)));});
-O.rel.forEach(rel=>makeArrow(rel.s,rel.o,rel.p,0x222222,false,false));
+// Edge creation moved into _oaChunkedBuild() above for chunked progress reporting.
 
 const calloutObjs=[];
 function makeDPStackLabel(texts){
@@ -526,7 +683,7 @@ function makeDPStackLabel(texts){
   const bs=H*(1.4/160);
   const s=new THREE.Sprite(mat);s.userData.baseScale=bs;s.userData.aspect=W/H;s.scale.set(bs*W/H,bs,1);allLabels.push(s);return s;}
 function makeDPStack(nodeId,texts){
-  const sm=nodeMeshes.find(m=>m.userData.id===nodeId);if(!sm||!texts.length)return;
+  const sm=getNodeMesh(nodeId);if(!sm||!texts.length)return;
   const R_=sm.userData.radius||CLS_R;
   const slopeD=1.8,horizLen=1.0;
   const Ax=R_*Math.SQRT1_2,Ay=R_*Math.SQRT1_2;
@@ -629,17 +786,24 @@ function refreshArrowHeads(){arrowObjs.forEach(a=>{let tgt;
   else if(selectedRoot&&(a.srcId===selectedRoot||a.tgtId===selectedRoot))tgt=0x3a7bd5;
   else if(selectedLine){const[s,t]=edgeEndpoints(selectedLine);if((a.srcId===s&&a.tgtId===t)||(a.srcId===t&&a.tgtId===s))tgt=0xf5b800;else tgt=a.origColor;}
   else tgt=a.origColor;
-  if(a._headCol!==tgt){repaintHead(a.head,tgt);a._headCol=tgt;}});}
+  if(a.head&&a._headCol!==tgt){repaintHead(a.head,tgt);a._headCol=tgt;}});}
 function updateSelection(){
   selectedSet.clear();
   if(selectedRoot){
     selectedSet.add(selectedRoot);
-    edgeObjs.forEach(l=>{if(l.userData.srcId===selectedRoot)selectedSet.add(l.userData.tgtId);else if(l.userData.tgtId===selectedRoot)selectedSet.add(l.userData.srcId);});
-    arrowObjs.forEach(a=>{if(a.srcId===selectedRoot)selectedSet.add(a.tgtId);else if(a.tgtId===selectedRoot)selectedSet.add(a.srcId);});
+    if(denseEdgeMode){
+      O.sub.forEach(([s,t])=>{if(s===selectedRoot)selectedSet.add(t);else if(t===selectedRoot)selectedSet.add(s);});
+      O.typ.forEach(([s,t])=>{if(s===selectedRoot)selectedSet.add(t);else if(t===selectedRoot)selectedSet.add(s);});
+      O.rel.forEach(r=>{if(r.s===selectedRoot)selectedSet.add(r.o);else if(r.o===selectedRoot)selectedSet.add(r.s);});
+    }else{
+      edgeObjs.forEach(l=>{if(l.userData.srcId===selectedRoot)selectedSet.add(l.userData.tgtId);else if(l.userData.tgtId===selectedRoot)selectedSet.add(l.userData.srcId);});
+      arrowObjs.forEach(a=>{if(a.srcId===selectedRoot)selectedSet.add(a.tgtId);else if(a.tgtId===selectedRoot)selectedSet.add(a.srcId);});
+    }
   }else if(selectedLine){
     const[s,t]=edgeEndpoints(selectedLine);selectedSet.add(s);selectedSet.add(t);
   }
   refreshArrowHeads();highlightSource();
+  selectionDirty=true;
 }
 
 const nodeToLines={};
@@ -650,13 +814,22 @@ function populateSource(){
   const nodeIdSet=new Set([...O.cls.map(n=>n.id),...O.ind.map(n=>n.id)]);
   const opIdSet=new Set(O.op.map(n=>n.id));
   const dpIdSet=new Set(O.dp.map(n=>n.id));
-  const allIds=[...nodeIdSet,...opIdSet,...dpIdSet];
-  const reMap=new Map();allIds.forEach(id=>reMap.set(id,new RegExp('(^|[^A-Za-z0-9_])'+id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^A-Za-z0-9_])')));
-  lines.forEach((line,idx)=>{
-    const mentioned=[];
-    allIds.forEach(id=>{if(reMap.get(id).test(line)){
-      const kind=nodeIdSet.has(id)?'node':opIdSet.has(id)?'op':'dp';
-      mentioned.push({id,kind});if(kind==='node')(nodeToLines[id]=nodeToLines[id]||[]).push(idx);}});
+  const maxLines=Math.min(lines.length,SOURCE_RENDER_LINE_LIMIT);
+  if(lines.length>maxLines){
+    const note=document.createElement('div');note.className='src-line';
+    const code=document.createElement('span');code.className='src-code';code.textContent=`Source preview limited to ${maxLines.toLocaleString()} / ${lines.length.toLocaleString()} lines for large-file performance.`;
+    note.appendChild(code);body.appendChild(note);
+  }
+  const frag=document.createDocumentFragment();
+  for(let idx=0;idx<maxLines;idx++){
+    const line=lines[idx];
+    const mentioned=[],seen=new Set();
+    String(line).replace(/[A-Za-z_][A-Za-z0-9_-]*/g,tok=>{
+      if(seen.has(tok))return tok;seen.add(tok);
+      const kind=nodeIdSet.has(tok)?'node':opIdSet.has(tok)?'op':dpIdSet.has(tok)?'dp':'';
+      if(kind){mentioned.push({id:tok,kind});if(kind==='node')(nodeToLines[tok]=nodeToLines[tok]||[]).push(idx);}
+      return tok;
+    });
     const div=document.createElement('div');div.className='src-line';div.dataset.line=idx;
     const ln=document.createElement('span');ln.className='src-ln';ln.textContent=(idx+1).toString();
     const code=document.createElement('span');code.className='src-code';code.textContent=line||' ';
@@ -677,7 +850,9 @@ function populateSource(){
       if(dM.length){const dom=O.dom.find(d=>d.p===dM[0])?.c;
         if(dom){selectedRoot=(dom===selectedRoot)?null:dom;selectedLine=null;updateSelection();}}
     });
-    body.appendChild(div);});
+    frag.appendChild(div);
+  }
+  body.appendChild(frag);
 }
 
 let _suppressScroll=false;
@@ -772,14 +947,28 @@ canvas.addEventListener('pointerup',endDrag);canvas.addEventListener('pointercan
 
 function updateEdgesFor(id){
   if(mapView.active)_updateMapLeader(id);
+  if(denseEdgeMode){refreshDenseEdgeBatches();return;}
   edgeObjs.forEach(l=>{if(l.userData.srcId===id||l.userData.tgtId===id){
-    const s=nodeMeshes.find(m=>m.userData.id===l.userData.srcId),t=nodeMeshes.find(m=>m.userData.id===l.userData.tgtId);
+    const s=getNodeMesh(l.userData.srcId),t=getNodeMesh(l.userData.tgtId);
     if(s&&t){const pos=l.geometry.attributes.position;pos.setXYZ(0,s.position.x,s.position.y,s.position.z);pos.setXYZ(1,t.position.x,t.position.y,t.position.z);pos.needsUpdate=true;
       if(l.userData.dashed)l.computeLineDistances();
       if(l.userData.labelSprite)l.userData.labelSprite.position.copy(s.position.clone().add(t.position).multiplyScalar(.5));}}});
   arrowObjs.forEach(a=>{if(a.srcId===id||a.tgtId===id)updateArrow(a);});
   // In 2D mode, re-evaluate curvature on all arrows — moving a node can both create new obstructions and clear old ones.
   const b2=document.getElementById('b2');if(b2&&b2.classList.contains('active'))bendEdgesToAvoid();
+}
+
+function logicalConnectionsFor(id){
+  if(!denseEdgeMode){
+    const cE=edgeObjs.filter(e2=>e2.userData.srcId===id||e2.userData.tgtId===id).map(e2=>({s:e2.userData.srcId,t:e2.userData.tgtId,l:e2.userData.label}));
+    const cA=arrowObjs.filter(a=>a.srcId===id||a.tgtId===id).map(a=>({s:a.srcId,t:a.tgtId,l:a.label}));
+    return[...cE,...cA];
+  }
+  const out=[];
+  O.sub.forEach(([s,t])=>{if(s===id||t===id)out.push({s,t,l:'subClassOf'});});
+  O.typ.forEach(([s,t])=>{if(s===id||t===id)out.push({s,t,l:'a'});});
+  O.rel.forEach(r=>{if(r.s===id||r.o===id)out.push({s:r.s,t:r.o,l:r.p});});
+  return out;
 }
 
 canvas.addEventListener('mousemove',e=>{
@@ -793,44 +982,50 @@ canvas.addEventListener('mousemove',e=>{
     document.getElementById('ttn').textContent=d.label;document.getElementById('ttt').textContent=d.type;
     document.getElementById('ttu').textContent=d.uri||d.id;
     const tcEl=document.getElementById('ttc');if(tcEl)tcEl.textContent=O.comments[d.id]||'';
-    const cE=edgeObjs.filter(e2=>e2.userData.srcId===d.id||e2.userData.tgtId===d.id).map(e2=>({s:e2.userData.srcId,t:e2.userData.tgtId,l:e2.userData.label}));
-    const cA=arrowObjs.filter(a=>a.srcId===d.id||a.tgtId===d.id).map(a=>({s:a.srcId,t:a.tgtId,l:a.label}));
-    const conns=[...cE,...cA];
+    const conns=logicalConnectionsFor(d.id);
     const _esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
     const connRows=conns.map(c=>{const o=c.s===d.id?c.t:c.s;return _esc((c.l||'?')+' \u2192 '+o);});
     const dpC=(dpByClass[d.id]||[]).map(dp=>_esc(dp.name+(dp.range?' : '+dp.range:'')));
-    const dpI=(dpByIndiv[d.id]||[]).map(dp=>_esc(dp.name+' = "'+dp.value+'"'));
+    // imageUrl은 별도 thumbnail로 보여주고, DP row에는 표시하지 않음 (중복 회피)
+    const allDpI=dpByIndiv[d.id]||[];
+    const imgUrls=allDpI.filter(dp=>/^imageurl$/i.test(dp.name)||/^image$/i.test(dp.name)||/^thumbnail$/i.test(dp.name)).map(dp=>dp.value);
+    const dpI=allDpI.filter(dp=>!/^(imageurl|image|thumbnail)$/i.test(dp.name)).map(dp=>_esc(dp.name+' = "'+dp.value+'"'));
     const lbl=O.labels[d.id]||'';
     const lblBar=lbl?`<div class='dp-titlebar'>rdfs:label = "${_esc(lbl)}"</div>`:'';
     const dpRowsHTML=[...dpC,...dpI].map(r=>`<div class='dp-row'>${r}</div>`).join('');
     const dpBlock=(lblBar||dpRowsHTML)?`<div class='dp-table'>${lblBar}${dpRowsHTML}</div>`:'';
+    // Scene thumbnail (위성 촬영 영상 등): ex:imageUrl을 보유한 인디비주얼은 tooltip에 thumbnail 표시
+    const imgHTML=imgUrls.length?`<div style='margin-top:8px;text-align:center'><img src='${_esc(imgUrls[0])}' style='max-width:300px;max-height:220px;border-radius:6px;border:1px solid #ddd;box-shadow:0 2px 6px rgba(0,0,0,.08)' loading='lazy' onerror="this.style.display='none'"><div style='font-size:10px;color:#999;margin-top:4px'>📷 ${_esc(imgUrls[0].split('/').pop())}</div></div>`:'';
     const connHTML=connRows.join('<br>');
-    document.getElementById('ttp').innerHTML=(connHTML+dpBlock)||'No connections';
+    document.getElementById('ttp').innerHTML=(connHTML+dpBlock+imgHTML)||'No connections';
     if(hovered&&hovered!==hits[0].object)hovered.material.color.setHex(0xffffff);
     hovered=hits[0].object;hovered.material.color.setHex(0xf0f0f0);
   }else{if(hovered)hovered.material.color.setHex(0xffffff);hovered=null;tt.style.display='none';}});
 
 document.getElementById('search').addEventListener('input',e=>{const q=e.target.value.toLowerCase();
   nodeMeshes.forEach(m=>{const v=!q||m.userData.label.toLowerCase().includes(q)||m.userData.id.toLowerCase().includes(q);m.visible=v;_setNodeAttachVisibility(m.userData.id,v);});
-  edgeObjs.forEach(l=>{const sv=nodeMeshes.find(m=>m.userData.id===l.userData.srcId)?.visible;
-    const tv=nodeMeshes.find(m=>m.userData.id===l.userData.tgtId)?.visible;l.visible=!q||(sv&&tv);
+  edgeObjs.forEach(l=>{const sv=getNodeMesh(l.userData.srcId)?.visible;
+    const tv=getNodeMesh(l.userData.tgtId)?.visible;l.visible=!q||(sv&&tv);
     if(l.userData.labelSprite)l.userData.labelSprite.visible=l.visible;});
-  arrowObjs.forEach(a=>{const sv=nodeMeshes.find(m=>m.userData.id===a.srcId)?.visible;
-    const tv=nodeMeshes.find(m=>m.userData.id===a.tgtId)?.visible;const vis=!q||(sv&&tv);
-    a.visible=vis;a.line.visible=vis;a.head.visible=vis;if(a.labelSprite)a.labelSprite.visible=vis;});});
+  arrowObjs.forEach(a=>{const sv=getNodeMesh(a.srcId)?.visible;
+    const tv=getNodeMesh(a.tgtId)?.visible;const vis=!q||(sv&&tv);
+    a.visible=vis;a.line.visible=vis;if(a.head)a.head.visible=vis;if(a.labelSprite)a.labelSprite.visible=vis;});});
 
 const _tmpV=new THREE.Vector3();
 function updateLabelScales(){const cp=camera.position;allLabels.forEach(l=>{l.getWorldPosition(_tmpV);const d=cp.distanceTo(_tmpV);const bs=l.userData.baseScale*(d/REF_DIST)*textScale;const ar=l.userData.aspect||8;l.scale.set(bs*ar,bs,1);});}
 const HI_COL=new THREE.Color(0x3a7bd5),BASE_ECOL=new THREE.Color();
 const YEL_COL=new THREE.Color(0xf5b800);
+let selectionDirty=false;
 function selectionPulse(){
   const active=!!(selectedRoot||selectedLine);const t=performance.now()/1000,pulse=0.5+0.5*Math.sin(t*2.5),hoverPulse=0.5+0.5*Math.sin(t*4);
-  nodeMeshes.forEach(m=>{if(m===hovered)return;
-    const id=m.userData.id;
-    if(active&&id===selectedRoot){const s=0.15+0.22*pulse;m.material.color.setRGB(1,1-s*0.25,1-s*0.85);}
-    else if(active&&selectedSet.has(id)){const s=0.05+0.10*pulse;m.material.color.setRGB(1-s*0.7,1-s*0.3,1);}
-    else if(id===handHoverRoot){const s=0.12+0.22*hoverPulse;m.material.color.setRGB(1-s*0.17,1-s*0.61,1-s*0.09);}
-    else m.material.color.setHex(0xffffff);});
+  const needNodePass=active||handHoverRoot||selectionDirty;
+  if(needNodePass)nodeMeshes.forEach(m=>{if(m===hovered)return;
+      const id=m.userData.id;
+      if(active&&id===selectedRoot){const s=0.15+0.22*pulse;m.material.color.setRGB(1,1-s*0.25,1-s*0.85);}
+      else if(active&&selectedSet.has(id)){const s=0.05+0.10*pulse;m.material.color.setRGB(1-s*0.7,1-s*0.3,1);}
+      else if(id===handHoverRoot){const s=0.12+0.22*hoverPulse;m.material.color.setRGB(1-s*0.17,1-s*0.61,1-s*0.09);}
+      else m.material.color.setHex(0xffffff);});
+  if(!active){selectionDirty=false;return;}
   const blend=0.35+0.35*pulse;
   edgeObjs.forEach(l=>{const orig=l.userData.origColor||0xbbbbbb;BASE_ECOL.setHex(orig);
     if(l===selectedLine)l.material.color.copy(BASE_ECOL).lerp(YEL_COL,blend);
@@ -839,7 +1034,8 @@ function selectionPulse(){
   arrowObjs.forEach(a=>{const orig=a.origColor||0x555555;BASE_ECOL.setHex(orig);
     if(a===selectedLine)a.line.material.color.copy(BASE_ECOL).lerp(YEL_COL,blend);
     else if(selectedRoot&&(a.srcId===selectedRoot||a.tgtId===selectedRoot))a.line.material.color.copy(BASE_ECOL).lerp(HI_COL,blend);
-    else a.line.material.color.setHex(orig);});}
+    else a.line.material.color.setHex(orig);});
+  selectionDirty=false;}
 // Hoisted state for map/orbit modules so the animate loop (which calls _orbitTick) doesn't hit TDZ on first frame.
 let mapView={active:false,group:null,ctx:null,leaders:{},pins:{}};
 let orbitState={satrecs:{},trails:{},lastTick:0,tickInterval:1000};
@@ -850,8 +1046,9 @@ function populateEdgeFilter(){
   const labels=new Set();
   edgeObjs.forEach(e=>{if(e.userData&&e.userData.label)labels.add(e.userData.label);});
   arrowObjs.forEach(a=>{if(a.label)labels.add(a.label);});
+  denseEdgeBatches.forEach(b=>{if(b.label)labels.add(b.label);});
   if(O.sub&&O.sub.length)labels.add('subClassOf');
-  if(O.typ&&O.typ.length)labels.add('rdf:type');
+  if(O.typ&&O.typ.length)labels.add('a');
   const arr=[...labels].filter(l=>l).sort();
   if(!arr.length){panel.innerHTML='<div class="sub">No edges</div>';return;}
   panel.innerHTML='';
@@ -863,10 +1060,11 @@ function populateEdgeFilter(){
     cb.addEventListener('change',e=>{const v=e.target.checked;
       edgeObjs.forEach(eo=>{if(eo.userData&&eo.userData.label===lbl){eo.visible=v;if(eo.userData.labelSprite)eo.userData.labelSprite.visible=v;}});
       arrowObjs.forEach(a=>{if(a.label===lbl){if(a.line)a.line.visible=v;if(a.head)a.head.visible=v;if(a.labelSprite)a.labelSprite.visible=v;}});
+      denseEdgeBatches.forEach(b=>{if(b.label===lbl)b.line.visible=v;});
     });
   });
 }
-function animate(){requestAnimationFrame(animate);nodeMeshes.forEach(m=>m.quaternion.copy(camera.quaternion));arrowObjs.forEach(updateArrowRot);selectionPulse();updateLabelScales();animateInferred(performance.now());_orbitTick(performance.now());_maybeUpdateGlobeLOD(performance.now());ctrl.update();renderer.render(scene,camera);}
+function animate(){requestAnimationFrame(animate);nodeMeshes.forEach(m=>m.quaternion.copy(camera.quaternion));if(renderArrowHeads)arrowObjs.forEach(updateArrowRot);selectionPulse();updateLabelScales();animateInferred(performance.now());_orbitTick(performance.now());_maybeUpdateGlobeLOD(performance.now());_maybeUpdateMapLOD(performance.now());ctrl.update();renderer.render(scene,camera);}
 animate();
 populateEdgeFilter();
 
@@ -900,8 +1098,9 @@ window.addEventListener('keydown',e=>{
   }
 });
 
-function applyPositions(){Object.keys(nodeMap).forEach(id=>{const m=nodeMeshes.find(m=>m.userData.id===id);if(m)m.position.set(nodeMap[id].x,nodeMap[id].y,nodeMap[id].z);});
-  edgeObjs.forEach(l=>{const s=nodeMeshes.find(m=>m.userData.id===l.userData.srcId),t=nodeMeshes.find(m=>m.userData.id===l.userData.tgtId);
+function applyPositions(){Object.keys(nodeMap).forEach(id=>{const m=getNodeMesh(id);if(m)m.position.set(nodeMap[id].x,nodeMap[id].y,nodeMap[id].z);});
+  if(denseEdgeMode)refreshDenseEdgeBatches();
+  edgeObjs.forEach(l=>{const s=getNodeMesh(l.userData.srcId),t=getNodeMesh(l.userData.tgtId);
     if(s&&t){const pos=l.geometry.attributes.position;pos.setXYZ(0,s.position.x,s.position.y,s.position.z);pos.setXYZ(1,t.position.x,t.position.y,t.position.z);pos.needsUpdate=true;
       if(l.userData.dashed)l.computeLineDistances();
       if(l.userData.labelSprite)l.userData.labelSprite.position.copy(s.position.clone().add(t.position).multiplyScalar(.5));}});
@@ -1000,8 +1199,8 @@ function resetBends(){
 function bendEdgesToAvoid(){
   arrowObjs.forEach(a=>{
     if(a.isLoop)return;
-    const sm=nodeMeshes.find(m=>m.userData.id===a.srcId);
-    const tm=nodeMeshes.find(m=>m.userData.id===a.tgtId);
+    const sm=getNodeMesh(a.srcId);
+    const tm=getNodeMesh(a.tgtId);
     if(!sm||!tm)return;
     const [fA,fB]=a.srcId<a.tgtId?[sm,tm]:[tm,sm];
     const dx=fB.position.x-fA.position.x,dy=fB.position.y-fA.position.y;
@@ -1165,7 +1364,7 @@ function _orbitTick(now){
       if(isGlobe&&surfPt){pin.surfPt=surfPt;if(pin.mesh)pin.mesh.position.copy(surfPt);}
       else{pin.x=nx;pin.z=nz;if(pin.mesh)pin.mesh.position.set(nx,-8.85,nz);}
     }
-    const nodeMesh=nodeMeshes.find(m=>m.userData.id===id);
+    const nodeMesh=getNodeMesh(id);
     if(nodeMesh)nodeMesh.position.set(nx,ny,nz);
     if(nodeMap[id]){nodeMap[id].x=nx;nodeMap[id].y=ny;nodeMap[id].z=nz;}
     _updateMapLeader(id);
@@ -1183,37 +1382,128 @@ function _orbitTick(now){
 function _lonToTileX(lon,z){return ((lon+180)/360)*Math.pow(2,z);}
 function _latToTileY(lat,z){return ((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2)*Math.pow(2,z);}
 function _pickZoom(minLat,maxLat,minLon,maxLon){
-  for(let z=10;z>=2;z--){
+  // Higher z = street-level detail. Tile budget 8×8 keeps initial fetch ≤ 64 tiles.
+  for(let z=17;z>=2;z--){
     const xs=_lonToTileX(maxLon,z)-_lonToTileX(minLon,z);
     const ys=_latToTileY(minLat,z)-_latToTileY(maxLat,z);
-    if(xs<=4&&ys<=4)return z;
+    if(xs<=8&&ys<=8)return z;
   }
   return 2;
 }
+// === Map plane chunked LOD ===
+// Base tiles loaded eagerly (covers the bbox). _updateMapLOD adds finer-z overlay
+// tiles as camera approaches, and culls them when camera retreats.
+const _activeMapChunks=new Map();const _MAP_MAX_Z=18;
+let _lastMapLODUpdate=0;const _lastMapCamPos=new THREE.Vector3(99999,0,0);
+function _addMapChunk(group,z,x,y,ctx){
+  const key=z+'/'+x+'/'+y;
+  if(_activeMapChunks.has(key))return;
+  const factor=Math.pow(2,z-ctx.z);
+  const x0t=x/factor,x1t=(x+1)/factor,y0t=y/factor,y1t=(y+1)/factor;
+  // Clip to plane bbox (ctx.x0..ctx.x1, ctx.y0..ctx.y1).
+  if(x1t<=ctx.x0||x0t>=ctx.x1||y1t<=ctx.y0||y0t>=ctx.y1)return;
+  const cx0=Math.max(x0t,ctx.x0),cx1=Math.min(x1t,ctx.x1);
+  const cy0=Math.max(y0t,ctx.y0),cy1=Math.min(y1t,ctx.y1);
+  const u0=(cx0-ctx.x0)/(ctx.x1-ctx.x0),u1=(cx1-ctx.x0)/(ctx.x1-ctx.x0);
+  const v0=(cy0-ctx.y0)/(ctx.y1-ctx.y0),v1=(cy1-ctx.y0)/(ctx.y1-ctx.y0);
+  const wx=((u0+u1)/2-0.5)*ctx.planeW,wz=((v0+v1)/2-0.5)*ctx.planeH;
+  const tw=(u1-u0)*ctx.planeW,th=(v1-v0)*ctx.planeH;
+  if(tw<=0.001||th<=0.001)return;
+  const mat=new THREE.MeshBasicMaterial({color:0xe0e0e0,side:THREE.DoubleSide,transparent:true,opacity:0.95,depthWrite:false});
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(tw,th),mat);
+  mesh.rotation.x=-Math.PI/2;
+  // Higher z renders above lower z so finer tiles overlay coarser when both present.
+  mesh.position.set(wx,-9+(z-ctx.z)*0.003,wz);
+  mesh.renderOrder=-100+z;
+  mesh.userData={chunkKey:key,z,x,y};
+  group.add(mesh);_activeMapChunks.set(key,mesh);
+  // _fetchTile returns textures with flipY=false (shared with the globe LOD, which uses custom UVs
+  // on the sphere). PlaneGeometry's default UVs assume flipY=true, so we MUST rewrite every chunk's
+  // UVs here — otherwise the tile renders upside-down AND adjacent tiles fail to line up across
+  // boundaries (each tile's vertical flip is local, so neighboring tile content goes the wrong way).
+  // After rotation.x=-π/2 (plane laid flat), PlaneGeometry vertex order maps to world as:
+  //   v0(top-left)  → north-west,  v1(top-right) → north-east
+  //   v2(bot-left)  → south-west,  v3(bot-right) → south-east
+  // For Mercator tile images (top=north, origin top-left) read with flipY=false:
+  //   v0=(uFrac0,vFrac0)  v1=(uFrac1,vFrac0)
+  //   v2=(uFrac0,vFrac1)  v3=(uFrac1,vFrac1)
+  // For whole tiles uFrac0=vFrac0=0, uFrac1=vFrac1=1.
+  const uFrac0=(cx0-x0t)/(x1t-x0t),uFrac1=(cx1-x0t)/(x1t-x0t);
+  const vFrac0=(cy0-y0t)/(y1t-y0t),vFrac1=(cy1-y0t)/(y1t-y0t);
+  const uv=mesh.geometry.attributes.uv;
+  uv.setXY(0,uFrac0,vFrac0);uv.setXY(1,uFrac1,vFrac0);
+  uv.setXY(2,uFrac0,vFrac1);uv.setXY(3,uFrac1,vFrac1);
+  uv.needsUpdate=true;
+  _fetchTile(z,x,y).then(tex=>{
+    if(tex&&_activeMapChunks.get(key)===mesh&&mesh.parent){
+      mat.map=tex;mat.color.setHex(0xffffff);mat.needsUpdate=true;
+    }
+  });
+}
 function _buildMapPlane(ctx){
   const group=new THREE.Group();
-  const loader=new THREE.TextureLoader();loader.setCrossOrigin('anonymous');
+  // Eagerly seed base-z tiles covering the bbox; LOD layer adds finer tiles on demand.
   const nTiles=Math.pow(2,ctx.z);
   for(let xt=ctx.xt0;xt<=ctx.xt1;xt++){
     if(xt<0||xt>=nTiles)continue;
     for(let yt=ctx.yt0;yt<=ctx.yt1;yt++){
       if(yt<0||yt>=nTiles)continue;
-      const u0=(xt-ctx.x0)/(ctx.x1-ctx.x0),u1=(xt+1-ctx.x0)/(ctx.x1-ctx.x0);
-      const v0=(yt-ctx.y0)/(ctx.y1-ctx.y0),v1=(yt+1-ctx.y0)/(ctx.y1-ctx.y0);
-      const wx=((u0+u1)/2-0.5)*ctx.planeW,wz=((v0+v1)/2-0.5)*ctx.planeH;
-      const tw=(u1-u0)*ctx.planeW,th=(v1-v0)*ctx.planeH;
-      const mat=new THREE.MeshBasicMaterial({color:0xe0e0e0,side:THREE.DoubleSide,transparent:true,opacity:0.92});
-      const mesh=new THREE.Mesh(new THREE.PlaneGeometry(tw,th),mat);
-      mesh.rotation.x=-Math.PI/2;mesh.position.set(wx,-9,wz);group.add(mesh);
-      // Carto Positron (light_all) — minimal white/grey basemap. Subdomain rotation for parallel fetch.
-      const sub='abcd'[(xt+yt)%4];
-      const url='https://'+sub+'.basemaps.cartocdn.com/light_all/'+ctx.z+'/'+xt+'/'+yt+'.png';
-      loader.load(url,tex=>{mat.map=tex;mat.color.setHex(0xffffff);mat.needsUpdate=true;},undefined,()=>{});
+      _addMapChunk(group,ctx.z,xt,yt,ctx);
     }
   }
   const grid=new THREE.GridHelper(Math.max(ctx.planeW,ctx.planeH)*1.05,12,0x99aacc,0xccd6e8);
   grid.material.transparent=true;grid.material.opacity=0.35;grid.position.y=-8.9;group.add(grid);
   return group;
+}
+function _updateMapLOD(){
+  if(!mapView.active||mapView.mode!=='map'||!mapView.ctx||!mapView.group)return;
+  const ctx=mapView.ctx;
+  const fovRad=camera.fov*Math.PI/180;
+  const desired=[];
+  function recurse(z,x,y){
+    const factor=Math.pow(2,z-ctx.z);
+    const x0t=x/factor,x1t=(x+1)/factor,y0t=y/factor,y1t=(y+1)/factor;
+    if(x1t<=ctx.x0||x0t>=ctx.x1||y1t<=ctx.y0||y0t>=ctx.y1)return;
+    const cx0=Math.max(x0t,ctx.x0),cx1=Math.min(x1t,ctx.x1);
+    const cy0=Math.max(y0t,ctx.y0),cy1=Math.min(y1t,ctx.y1);
+    const uMid=((cx0+cx1)/2-ctx.x0)/(ctx.x1-ctx.x0);
+    const vMid=((cy0+cy1)/2-ctx.y0)/(ctx.y1-ctx.y0);
+    const wx=(uMid-0.5)*ctx.planeW,wz=(vMid-0.5)*ctx.planeH;
+    const tileW=(cx1-cx0)/(ctx.x1-ctx.x0)*ctx.planeW;
+    const center=new THREE.Vector3(wx,-9,wz);
+    const distance=Math.max(0.1,camera.position.distanceTo(center));
+    const screenSize=(tileW/distance)/fovRad*window.innerHeight;
+    if(screenSize>220&&z<_MAP_MAX_Z){
+      for(let i=0;i<2;i++)for(let j=0;j<2;j++)recurse(z+1,x*2+i,y*2+j);
+    }else{
+      desired.push({z,x,y});
+    }
+  }
+  for(let bx=ctx.xt0;bx<=ctx.xt1;bx++)
+    for(let by=ctx.yt0;by<=ctx.yt1;by++)
+      recurse(ctx.z,bx,by);
+  const desiredKeys=new Set(desired.map(t=>t.z+'/'+t.x+'/'+t.y));
+  // Cull chunks no longer needed (always keep base z so the map never goes blank).
+  for(const [key,mesh] of [..._activeMapChunks]){
+    const z=mesh.userData.z;
+    if(z===ctx.z)continue;
+    if(!desiredKeys.has(key)){
+      mapView.group.remove(mesh);
+      mesh.geometry.dispose();
+      if(mesh.material){mesh.material.map=null;mesh.material.dispose();}
+      _activeMapChunks.delete(key);
+    }
+  }
+  // Add new chunks
+  desired.forEach(t=>_addMapChunk(mapView.group,t.z,t.x,t.y,ctx));
+}
+function _maybeUpdateMapLOD(now){
+  if(!mapView.active||mapView.mode!=='map')return;
+  if(now-_lastMapLODUpdate<200)return;
+  const moved=camera.position.distanceTo(_lastMapCamPos);
+  if(moved<0.8&&_activeMapChunks.size>0)return;
+  _lastMapLODUpdate=now;_lastMapCamPos.copy(camera.position);
+  _updateMapLOD();
 }
 function _projectGeo(lat,lon,ctx){
   const tx=_lonToTileX(lon,ctx.z),ty=_latToTileY(lat,ctx.z);
@@ -1241,7 +1531,8 @@ function mapLayout(){
   minLon=Math.max(-180,minLon-padLon);maxLon=Math.min(180,maxLon+padLon);
   const z=_pickZoom(minLat,maxLat,minLon,maxLon);
   const x0=_lonToTileX(minLon,z),x1=_lonToTileX(maxLon,z),y0=_latToTileY(maxLat,z),y1=_latToTileY(minLat,z);
-  const planeW=50,planeH=planeW*((y1-y0)/(x1-x0));
+  // Spread the plane proportionally to picked z so tight-bbox layouts (e.g., neighborhood-level) still give nodes enough room not to overlap.
+  const planeW=Math.min(220,50+Math.max(0,z-6)*16),planeH=planeW*((y1-y0)/(x1-x0));
   const ctx={z,x0,x1,y0,y1,xt0:Math.floor(x0),xt1:Math.floor(x1),yt0:Math.floor(y0),yt1:Math.floor(y1),planeW,planeH};
   _disposeMapGroup();
   mapView.group=_buildMapPlane(ctx);scene.add(mapView.group);
@@ -1290,7 +1581,12 @@ function mapLayout(){
   });
   const allIds=[...O.cls.map(c=>c.id),...O.ind.map(i=>i.id)].filter(id=>nodeMap[id]||true);
   const movable=allIds.filter(id=>!geoIds.has(id));
-  movable.forEach((id,i)=>{const a=i/Math.max(1,movable.length)*Math.PI*2;const r=Math.max(planeW,planeH)*0.6;nodeMap[id]={x:Math.cos(a)*r,y:NODE_Y,z:Math.sin(a)*r};});
+  // Tier movable nodes above the map by hierarchy depth (root = highest, leaves closer to map).
+  const _hd=_computeHierDepth();const _depthOf=id=>{if(_hd.cdepth[id]!==undefined)return _hd.cdepth[id];if(_hd.idepth[id]!==undefined)return _hd.idepth[id];return _hd.maxCD;};
+  const _tierStep=4.5;const _tierBase=NODE_Y;
+  const _tiers={};movable.forEach(id=>{const d=_depthOf(id);(_tiers[d]=_tiers[d]||[]).push(id);});
+  Object.keys(_tiers).forEach(d=>{const arr=_tiers[d];const y=_tierBase+(_hd.maxCD-+d)*_tierStep;
+    arr.forEach((id,i)=>{const a=i/Math.max(1,arr.length)*Math.PI*2;const r=Math.max(planeW,planeH)*(0.55+(+d)*0.04);nodeMap[id]={x:Math.cos(a)*r,y,z:Math.sin(a)*r};});});
   const edges=[];O.sub.forEach(([a,b])=>edges.push([a,b]));O.typ.forEach(([a,b])=>edges.push([a,b]));O.rel.forEach(r=>edges.push([r.s,r.o]));
   for(let it=0;it<150;it++){
     const fx={},fz={};movable.forEach(id=>{fx[id]=0;fz[id]=0;});
@@ -1323,7 +1619,8 @@ function _disposeMapGroup(){
   });
   mapView.group=null;mapView.leaders={};mapView.pins={};
   orbitState.satrecs={};orbitState.trails={};
-  _activeChunks.clear();
+  _activeChunks.clear();_activeMapChunks.clear();
+  _lastMapCamPos.set(99999,0,0);
 }
 // "east-on-right" convention: lon=0 at -x, lon=+90 at +z. Visible from +z camera with Asia on screen-right when looking at the +x,+z octant.
 function _latLonToSphere(lat,lon,R){const latR=lat*Math.PI/180,lonR=lon*Math.PI/180;return new THREE.Vector3(-R*Math.cos(latR)*Math.cos(lonR),R*Math.sin(latR),R*Math.cos(latR)*Math.sin(lonR));}
@@ -1478,7 +1775,7 @@ function _updateMapLeader(id){
   }
   pos.needsUpdate=true;lead.computeLineDistances();
 }
-function exitMapView(){if(!mapView.active)return;_disposeMapGroup();mapView.active=false;mapView.ctx=null;mapView.mode=null;floorGrid.visible=true;['bgeomap','bgeoglobe','bgrid'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active-map');});const a=document.getElementById('map-attrib');if(a)a.style.display='none';ctrl.minDistance=0;}
+function exitMapView(){if(!mapView.active)return;_disposeMapGroup();mapView.active=false;mapView.ctx=null;mapView.mode=null;floorGrid.visible=true;['bgeomap','bgeoglobe','bgrid','bbody'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.remove('active-map');});const a=document.getElementById('map-attrib');if(a)a.style.display='none';ctrl.minDistance=0;ctrl.maxDistance=Infinity;ctrl.minPolarAngle=0;ctrl.maxPolarAngle=Math.PI;ctrl.minAzimuthAngle=-Infinity;ctrl.maxAzimuthAngle=Infinity;ctrl.rotateSpeed=1;ctrl.dampingFactor=0.05;}
 
 function _setLayoutActive(id){['bh','bf','b2'].forEach(x=>{const el=document.getElementById(x);if(el)el.classList.toggle('active',x===id);});}
 document.getElementById('bf').addEventListener('click',()=>{exitMapView();setView2D(false);resetBends();forceLayout(400);_setLayoutActive('bf');});
@@ -1548,10 +1845,14 @@ function globeLayout(){
     const tl=new THREE.Line(tlGeo,tlMat);tl.frustumCulled=false;mapView.group.add(tl);
     orbitState.trails[s.id]={points:[trailPt],line:tl,geometry:tlGeo};
   });
-  // Place non-geo non-sat nodes in a ring around the globe
+  // Place non-geo non-sat nodes in tiered rings around the globe, stacked by hierarchy depth.
   const allIds=[...O.cls.map(c=>c.id),...O.ind.map(i=>i.id)].filter(id=>nodeMap[id]||true);
   const movable=allIds.filter(id=>!geoIds.has(id));
-  movable.forEach((id,i)=>{const a=i/Math.max(1,movable.length)*Math.PI*2;const r=R*1.75;nodeMap[id]={x:Math.cos(a)*r,y:R*0.45*(((i%3)-1)),z:Math.sin(a)*r};});
+  const _hd=_computeHierDepth();const _depthOf=id=>{if(_hd.cdepth[id]!==undefined)return _hd.cdepth[id];if(_hd.idepth[id]!==undefined)return _hd.idepth[id];return _hd.maxCD;};
+  const _tiers={};movable.forEach(id=>{const d=_depthOf(id);(_tiers[d]=_tiers[d]||[]).push(id);});
+  const _tierStep=R*0.42;
+  Object.keys(_tiers).forEach(d=>{const arr=_tiers[d];const y=(_hd.maxCD-+d)*_tierStep-_tierStep*(_hd.maxCD/2);
+    arr.forEach((id,i)=>{const a=i/Math.max(1,arr.length)*Math.PI*2;const r=R*(1.65+(+d)*0.08);nodeMap[id]={x:Math.cos(a)*r,y,z:Math.sin(a)*r};});});
   applyPositions();
   camera.position.set(0,R*1.4,R*3.0);ctrl.target.set(0,0,0);
   return true;
@@ -1674,6 +1975,177 @@ function gridLayout(){
   const fit=Math.max(planeW,planeH)*0.95;camera.position.set(0,fit*0.9,fit*1.1);ctrl.target.set(0,0,0);
   return true;
 }
+// ============================================================
+// BODY view — anchor nodes to anatomical positions on a front-facing human figure.
+// Same plug-in shape as the MAP/GLOBE/GRID scenes: a node opts in via bodyAnchor "<region>"
+// (English OR Korean key, resolved through BODY_ANCHORS) or explicit bodyX/bodyY (normalized 0..1).
+// ============================================================
+// Normalized front-view coords: x 0=viewer-left → 1=viewer-right, y 0=top of head → 1=feet.
+const BODY_ANCHORS={
+  // head & face
+  head:[0.50,0.055],skull:[0.50,0.05],cranium:[0.50,0.045],brain:[0.50,0.052],
+  '머리':[0.50,0.055],'두개골':[0.50,0.05],'뇌':[0.50,0.052],
+  face:[0.50,0.08],'얼굴':[0.50,0.08],
+  eye:[0.50,0.072],eye_left:[0.455,0.073],eye_right:[0.545,0.073],'눈':[0.50,0.072],'좌안':[0.455,0.073],'우안':[0.545,0.073],
+  ear:[0.42,0.085],'귀':[0.42,0.085],nose:[0.50,0.088],'코':[0.50,0.088],
+  mouth:[0.50,0.108],jaw:[0.50,0.115],'입':[0.50,0.108],'턱':[0.50,0.115],'치아':[0.50,0.108],
+  // neck
+  neck:[0.50,0.135],throat:[0.50,0.135],'목':[0.50,0.135],'인후':[0.50,0.135],
+  thyroid:[0.50,0.152],'갑상선':[0.50,0.152],
+  cervical_spine:[0.50,0.14],
+  // shoulders / chest
+  shoulder:[0.355,0.185],shoulder_left:[0.355,0.185],shoulder_right:[0.645,0.185],'어깨':[0.355,0.185],'좌견':[0.355,0.185],'우견':[0.645,0.185],
+  clavicle:[0.50,0.175],'쇄골':[0.50,0.175],
+  chest:[0.50,0.235],thorax:[0.50,0.235],sternum:[0.50,0.235],'가슴':[0.50,0.235],'흉부':[0.50,0.235],'흉골':[0.50,0.235],
+  heart:[0.465,0.255],cardiac:[0.465,0.255],'심장':[0.465,0.255],
+  lung:[0.40,0.235],lung_left:[0.40,0.235],lung_right:[0.60,0.235],'폐':[0.40,0.235],'허파':[0.40,0.235],'좌폐':[0.40,0.235],'우폐':[0.60,0.235],
+  breast:[0.43,0.25],'유방':[0.43,0.25],
+  blood:[0.50,0.255],vascular:[0.50,0.255],'혈액':[0.50,0.255],'혈관':[0.50,0.255],
+  skin:[0.50,0.225],'피부':[0.50,0.225],
+  // arms
+  arm:[0.31,0.27],upper_arm:[0.31,0.27],arm_left:[0.31,0.27],arm_right:[0.69,0.27],'팔':[0.31,0.27],'상완':[0.31,0.27],
+  elbow:[0.285,0.345],'팔꿈치':[0.285,0.345],forearm:[0.265,0.40],'전완':[0.265,0.40],
+  wrist:[0.25,0.455],'손목':[0.25,0.455],hand:[0.235,0.49],hand_left:[0.235,0.49],hand_right:[0.765,0.49],'손':[0.235,0.49],
+  // abdomen / viscera
+  diaphragm:[0.50,0.295],'횡격막':[0.50,0.295],
+  liver:[0.585,0.315],'간':[0.585,0.315],
+  gallbladder:[0.565,0.335],'담낭':[0.565,0.335],'쓸개':[0.565,0.335],
+  stomach:[0.535,0.32],gastric:[0.535,0.32],'위':[0.535,0.32],
+  spleen:[0.42,0.325],'비장':[0.42,0.325],
+  pancreas:[0.50,0.338],'췌장':[0.50,0.338],
+  adrenal:[0.43,0.34],'부신':[0.43,0.34],
+  kidney:[0.42,0.355],kidney_left:[0.42,0.355],kidney_right:[0.58,0.355],'신장':[0.42,0.355],'콩팥':[0.42,0.355],'좌신':[0.42,0.355],'우신':[0.58,0.355],
+  abdomen:[0.50,0.36],'복부':[0.50,0.36],'배':[0.50,0.36],
+  navel:[0.50,0.40],umbilicus:[0.50,0.40],'배꼽':[0.50,0.40],
+  intestine:[0.50,0.42],bowel:[0.50,0.42],'장':[0.50,0.42],'창자':[0.50,0.42],
+  small_intestine:[0.50,0.425],'소장':[0.50,0.425],
+  large_intestine:[0.50,0.41],colon:[0.50,0.41],'대장':[0.50,0.41],'결장':[0.50,0.41],
+  appendix:[0.585,0.43],'충수':[0.585,0.43],'맹장':[0.585,0.43],
+  bladder:[0.50,0.455],'방광':[0.50,0.455],
+  pelvis:[0.50,0.475],hip:[0.50,0.475],'골반':[0.50,0.475],'엉덩이':[0.50,0.475],
+  groin:[0.50,0.49],genital:[0.50,0.49],'사타구니':[0.50,0.49],'생식기':[0.50,0.49],
+  spine:[0.50,0.30],back:[0.50,0.30],'척추':[0.50,0.30],'등':[0.50,0.30],
+  // legs
+  thigh:[0.44,0.58],thigh_left:[0.44,0.58],thigh_right:[0.56,0.58],'허벅지':[0.44,0.58],'대퇴':[0.44,0.58],
+  knee:[0.44,0.70],knee_left:[0.44,0.70],knee_right:[0.56,0.70],'무릎':[0.44,0.70],
+  leg:[0.44,0.82],lower_leg:[0.44,0.82],shin:[0.44,0.82],calf:[0.43,0.80],leg_left:[0.44,0.82],leg_right:[0.56,0.82],'다리':[0.44,0.82],'정강이':[0.44,0.82],'종아리':[0.43,0.80],
+  ankle:[0.44,0.93],'발목':[0.44,0.93],
+  foot:[0.44,0.97],foot_left:[0.44,0.97],foot_right:[0.56,0.97],'발':[0.44,0.97]
+};
+// Draw a recognizable front-facing human silhouette onto a 512×1024 canvas (1:2). Colors solid; the
+// plane material carries the transparency so overlapping limb strokes don't double-blend.
+function _drawBodySilhouette(cv){
+  const w=cv.width,h=cv.height,ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,w,h);
+  const X=n=>n*w,Y=n=>n*h;
+  const FILL='#d8e2f4',STROKE='#6c7aa3';
+  ctx.lineJoin='round';ctx.lineCap='round';
+  // Limbs first (light strokes, no outline) so torso overlaps the joints cleanly.
+  ctx.strokeStyle=FILL;
+  function limb(pts,wid){ctx.lineWidth=X(wid);ctx.beginPath();ctx.moveTo(X(pts[0][0]),Y(pts[0][1]));for(let i=1;i<pts.length;i++)ctx.lineTo(X(pts[i][0]),Y(pts[i][1]));ctx.stroke();}
+  limb([[0.40,0.20],[0.34,0.27],[0.285,0.345],[0.255,0.43],[0.235,0.49]],0.052); // left arm
+  limb([[0.60,0.20],[0.66,0.27],[0.715,0.345],[0.745,0.43],[0.765,0.49]],0.052); // right arm
+  limb([[0.455,0.47],[0.45,0.58],[0.44,0.70],[0.44,0.82],[0.443,0.93],[0.445,0.965]],0.088); // left leg
+  limb([[0.545,0.47],[0.55,0.58],[0.56,0.70],[0.56,0.82],[0.557,0.93],[0.555,0.965]],0.088); // right leg
+  // feet
+  ctx.lineWidth=X(0.03);
+  limb([[0.445,0.965],[0.40,0.985]],0.03);limb([[0.555,0.965],[0.60,0.985]],0.03);
+  // Torso (filled + outlined)
+  ctx.fillStyle=FILL;ctx.strokeStyle=STROKE;ctx.lineWidth=X(0.006);
+  ctx.beginPath();
+  ctx.moveTo(X(0.40),Y(0.185));
+  ctx.quadraticCurveTo(X(0.352),Y(0.205),X(0.40),Y(0.30));
+  ctx.quadraticCurveTo(X(0.415),Y(0.40),X(0.43),Y(0.45));
+  ctx.quadraticCurveTo(X(0.405),Y(0.50),X(0.46),Y(0.505));
+  ctx.lineTo(X(0.54),Y(0.505));
+  ctx.quadraticCurveTo(X(0.595),Y(0.50),X(0.57),Y(0.45));
+  ctx.quadraticCurveTo(X(0.585),Y(0.40),X(0.60),Y(0.30));
+  ctx.quadraticCurveTo(X(0.648),Y(0.205),X(0.60),Y(0.185));
+  ctx.closePath();ctx.fill();ctx.stroke();
+  // Neck
+  ctx.beginPath();ctx.rect(X(0.468),Y(0.112),X(0.064),Y(0.05));ctx.fill();ctx.stroke();
+  // Head
+  ctx.beginPath();ctx.ellipse(X(0.5),Y(0.072),X(0.054),Y(0.064),0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Faint vertical centerline for symmetry reference
+  ctx.strokeStyle='rgba(108,122,163,0.28)';ctx.lineWidth=X(0.004);
+  ctx.beginPath();ctx.moveTo(X(0.5),Y(0.14));ctx.lineTo(X(0.5),Y(0.50));ctx.stroke();
+}
+function bodyLayout(){
+  const raw=(O.body&&O.body.nodes)||[];
+  if(!raw.length)return false;
+  // Resolve each anchored node to a normalized (bx,by) — explicit coords win, else region-key lookup.
+  const resolved=[];
+  raw.forEach(n=>{
+    let bx=n.bx,by=n.by;
+    if((bx==null||by==null)&&n.key){const a=BODY_ANCHORS[n.key];if(a){bx=a[0];by=a[1];}}
+    if(typeof bx!=='number'||typeof by!=='number')return;
+    resolved.push({id:n.id,bx:Math.max(0,Math.min(1,bx)),by:Math.max(0,Math.min(1,by))});
+  });
+  if(!resolved.length)return false;
+  _disposeMapGroup();
+  mapView.group=new THREE.Group();scene.add(mapView.group);
+  mapView.active=true;mapView.mode='body';floorGrid.visible=false;
+  const PW=26,PH=52;mapView.ctx={PW,PH};
+  // Silhouette plane (vertical, facing +Z / the camera)
+  const cv=document.createElement('canvas');cv.width=512;cv.height=1024;
+  _drawBodySilhouette(cv);
+  const tex=new THREE.CanvasTexture(cv);tex.needsUpdate=true;tex.minFilter=THREE.LinearFilter;
+  const planeMat=new THREE.MeshBasicMaterial({map:tex,transparent:true,opacity:0.92,side:THREE.DoubleSide,depthWrite:false});
+  const plane=new THREE.Mesh(new THREE.PlaneGeometry(PW,PH),planeMat);
+  plane.position.set(0,0,0);mapView.group.add(plane);
+  // Frame
+  const frame=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(PW,PH)),new THREE.LineBasicMaterial({color:0xb9c2d8,transparent:true,opacity:0.5}));
+  mapView.group.add(frame);
+  const toWorld=(bx,by)=>({x:(bx-0.5)*PW,y:(0.5-by)*PH});
+  // Cluster nodes sharing the same anchor so they fan out instead of overlapping.
+  const groups={};
+  resolved.forEach(n=>{const key=n.bx.toFixed(3)+','+n.by.toFixed(3);(groups[key]=groups[key]||[]).push(n);});
+  // Small depth lift only (keep nodes close to the silhouette plane so azimuth orbit doesn't fling them around — the
+  // big z-offset was what made the board "swing"). Readability comes from in-plane spread instead, see below.
+  const bodyIds=new Set();const NODE_Z=4.5,PIN_Z=0.18;
+  Object.values(groups).forEach(arr=>{
+    const base=toWorld(arr[0].bx,arr[0].by);
+    // One pin per anchor point on the silhouette
+    const pin=new THREE.Mesh(new THREE.CircleGeometry(0.5,18),new THREE.MeshBasicMaterial({color:0xc0392b,side:THREE.DoubleSide}));
+    pin.position.set(base.x,base.y,PIN_Z);mapView.group.add(pin);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(0.5,0.72,20),new THREE.MeshBasicMaterial({color:0xc0392b,transparent:true,opacity:0.45,side:THREE.DoubleSide}));
+    ring.position.set(base.x,base.y,PIN_Z);mapView.group.add(ring);
+    // Float labels out into the SIDE MARGIN (in-plane, not toward the camera) so the figure stays clear and
+    // azimuth orbit keeps pin↔node aligned. Left-of-centerline anchors go to the left margin, right to the right.
+    const side=base.x>=0?1:-1;
+    const outX=side*(Math.abs(base.x)+7.5);
+    arr.forEach((n,i)=>{
+      bodyIds.add(n.id);
+      const wx=outX, wy=base.y+(i-(arr.length-1)/2)*3.2; // stack a shared anchor's nodes vertically in the margin
+      nodeMap[n.id]={x:wx,y:wy,z:NODE_Z};
+      const ldGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(base.x,base.y,PIN_Z+0.02),new THREE.Vector3(wx,wy,NODE_Z-0.6)]);
+      const lead=new THREE.Line(ldGeo,new THREE.LineDashedMaterial({color:0xcf6f86,dashSize:0.34,gapSize:0.22}));
+      lead.computeLineDistances();mapView.group.add(lead);
+      mapView.leaders[n.id]=lead;mapView.pins[n.id]={x:wx,z:wy,mesh:pin};
+    });
+  });
+  // Non-anchored nodes: Classes on an outer ring, other Individuals on an inner ring, around the figure (XY plane, slightly toward camera).
+  const classSet=new Set(O.cls.map(c=>c.id));
+  const allIds=[...O.cls.map(c=>c.id),...O.ind.map(i=>i.id)];
+  const movable=allIds.filter(id=>!bodyIds.has(id));
+  const classNodes=movable.filter(id=>classSet.has(id));
+  const otherInds=movable.filter(id=>!classSet.has(id));
+  const Rc=PH*0.74,Ri=PH*0.60;
+  classNodes.forEach((id,i)=>{const a=-Math.PI/2+ (i+0.5)/Math.max(1,classNodes.length)*Math.PI*2;nodeMap[id]={x:Math.cos(a)*Rc,y:Math.sin(a)*Rc,z:1};});
+  otherInds.forEach((id,i)=>{const a=-Math.PI/2+ (i+0.5)/Math.max(1,otherInds.length)*Math.PI*2;nodeMap[id]={x:Math.cos(a)*Ri,y:Math.sin(a)*Ri,z:1};});
+  applyPositions();
+  // Camera + orbit — free-orbit like the GRID/chess board. The previous tight
+  // front-cone clamp (±50° azimuth, 36° polar band) made up/down rotation feel
+  // stuck; here we open it up so BODY pans like the board. The only guard is a
+  // few degrees off each exact pole, where this *vertical* plane would otherwise
+  // collapse edge-on to a line. Azimuth + distance are left fully free (reset to
+  // defaults by exitMapView(), so rotateSpeed/damping match the other views too).
+  const dist=PH*1.04;camera.position.set(0,3,dist);ctrl.target.set(0,0,0);
+  ctrl.minPolarAngle=Math.PI*0.06;   // ~11°  — look from well above
+  ctrl.maxPolarAngle=Math.PI*0.94;   // ~169° — and from well below
+  // minAzimuthAngle/maxAzimuthAngle/minDistance/maxDistance: left unrestricted.
+  return true;
+}
 const _bgeomap=document.getElementById('bgeomap');
 if(_bgeomap)_bgeomap.addEventListener('click',()=>{
   if(mapView.active&&mapView.mode==='map'){exitMapView();document.getElementById('bh').click();}
@@ -1688,6 +2160,11 @@ const _bgrid=document.getElementById('bgrid');
 if(_bgrid)_bgrid.addEventListener('click',()=>{
   if(mapView.active&&mapView.mode==='grid'){exitMapView();document.getElementById('bh').click();}
   else{exitMapView();setView2D(false);resetBends();_setLayoutActive('');if(gridLayout())_bgrid.classList.add('active-map');}
+});
+const _bbody=document.getElementById('bbody');
+if(_bbody)_bbody.addEventListener('click',()=>{
+  if(mapView.active&&mapView.mode==='body'){exitMapView();document.getElementById('bh').click();}
+  else{exitMapView();setView2D(false);resetBends();_setLayoutActive('');if(bodyLayout())_bbody.classList.add('active-map');}
 });
 const _bre=document.getElementById('bre');
 if(_bre)_bre.addEventListener('click',()=>{
@@ -1789,14 +2266,15 @@ if(_bre)_bre.addEventListener('click',()=>{
 window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
 document.getElementById('fn').textContent=FNAME;
-document.getElementById('info').innerHTML=O.cls.length+' owl:Class<br>'+O.ind.length+' Individual<br>'+O.op.length+' ObjectProperty<br>'+O.dp.length+' DatatypeProperty<br>'+(edgeObjs.length+arrowObjs.length)+' edges';
+document.getElementById('info').innerHTML=O.cls.length+' owl:Class<br>'+O.ind.length+' Individual<br>'+O.op.length+' ObjectProperty<br>'+O.dp.length+' DatatypeProperty<br>'+logicalEdgeCount()+' edges';
 if(nodeMeshes.length>50)camera.position.set(0,30,80);
 if(nodeMeshes.length>100)camera.position.set(0,40,120);
 
 let handDragId=null;
-window.OA={THREE,camera,ctrl,renderer,canvas,raycaster,nodeMeshes,edgeObjs,arrowObjs,nodeFromHit,findEdgeBetween,edgeEndpoints,
+window.OA={THREE,camera,ctrl,renderer,canvas,scene,raycaster,nodeMeshes,edgeObjs,arrowObjs,denseEdgeBatches,logicalEdgeCount,nodeFromHit,findEdgeBetween,edgeEndpoints,
+  get mapView(){return mapView;},get activeMapChunks(){return _activeMapChunks;},get activeGlobeChunks(){return _activeChunks;},
   getSelectedRoot:()=>selectedRoot,
-  beginNodeDrag:(id,ndcX,ndcY)=>{const m=nodeMeshes.find(n=>n.userData.id===id);if(!m)return false;
+  beginNodeDrag:(id,ndcX,ndcY)=>{const m=getNodeMesh(id);if(!m)return false;
     mouse.x=ndcX;mouse.y=ndcY;raycaster.setFromCamera(mouse,camera);
     camera.getWorldDirection(camDir);dragPlane.setFromNormalAndCoplanarPoint(camDir.clone().negate(),m.position);
     if(!raycaster.ray.intersectPlane(dragPlane,dragPoint))return false;
@@ -1808,7 +2286,7 @@ window.OA={THREE,camera,ctrl,renderer,canvas,raycaster,nodeMeshes,edgeObjs,arrow
       if(raycaster.ray.intersectPlane(dragPlane,dragPoint)){dragOffset.copy(nhit.position).sub(dragPoint);handDragId=id;}
       return id;}
     return null;},
-  updateNodeDrag:(ndcX,ndcY)=>{if(!handDragId)return;const m=nodeMeshes.find(n=>n.userData.id===handDragId);if(!m)return;
+  updateNodeDrag:(ndcX,ndcY)=>{if(!handDragId)return;const m=getNodeMesh(handDragId);if(!m)return;
     mouse.x=ndcX;mouse.y=ndcY;raycaster.setFromCamera(mouse,camera);
     if(!raycaster.ray.intersectPlane(dragPlane,dragPoint))return;
     m.position.copy(dragPoint).add(dragOffset);
@@ -1846,5 +2324,5 @@ window.OA={THREE,camera,ctrl,renderer,canvas,raycaster,nodeMeshes,edgeObjs,arrow
   setTextScale:(s)=>{textScale=Math.max(0.2,Math.min(5,s));},
   getTextScale:()=>textScale,
   toggleSource:()=>{const btn=document.getElementById('src-toggle');if(btn)btn.click();},
-  getNodeScreenAt:(id)=>{const m=nodeMeshes.find(n=>n.userData.id===id);if(!m)return null;return m.position.clone().project(camera);}
+  getNodeScreenAt:(id)=>{const m=getNodeMesh(id);if(!m)return null;return m.position.clone().project(camera);}
 };
